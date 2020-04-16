@@ -35,6 +35,17 @@ end
     @test !isa(isapprox(1), Equal)
 end
 
+@testset "EndsWith" begin
+    @test endswith("i")("hi")
+    @test endswith("i") isa EndsWith
+end
+
+@testset "StartsWith" begin
+    @test startswith("h")("hi")
+    @test startswith("h") isa StartsWith
+end
+
+
 @testset "and" begin
     @test and(true, <(5))(1)
     @test !and(<(5), false)(1)
@@ -45,6 +56,10 @@ end
     @test @inferred(and(<=(10), <=(1))) == <=(1)
     @test @inferred(and(<(1), <(10))) == <(1)
     @test @inferred(and(<(10), <(1))) == <(1)
+    @test @inferred(and(>(1), >(10))) == >(10)
+    @test @inferred(and(>(10), >(1))) == >(10)
+    @test @inferred(and(>=(1), >=(10))) == >=(10)
+    @test @inferred(and(>=(10), >=(1))) == >=(10)
 end
 
 @testset "or" begin
@@ -55,4 +70,8 @@ end
     @test @inferred(or(<(10), <(1))) == <(10)
     @test @inferred(or(<=(1), <=(10))) == <=(10)
     @test @inferred(or(<=(10), <=(1))) == <=(10)
+    @test @inferred(or(>(1), >(10))) == >(1)
+    @test @inferred(or(>(10), >(1))) == >(1)
+    @test @inferred(or(>=(1), >=(10))) == >=(1)
+    @test @inferred(or(>=(10), >=(1))) == >=(1)
 end

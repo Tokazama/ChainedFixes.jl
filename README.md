@@ -42,17 +42,20 @@ true
 
 ## Conveniant Type Constants
 
-|     Syntax | Type Constant           |
-| ---------: | ----------------------- |
-|  `and`/`⩓` | `And{F1,F2}`            |
-|   `or`/`⩔` | `Or{F1,F2}`             |
-| `isapprox` | `Approx{T,Kwargs}`      |
-|       `in` | `In{T}`                 |
-|      `!in` | `NotIn{T}`              |
-|        `<` | `Less{T}`               |
-|       `<=` | `LessThanOrEqual{T}`    |
-|        `>` | `Greater{T}`            |
-|       `>=` | `GreaterThanOrEqual{T}` |
-|       `==` | `Equal{T}`              |
-|  `isequal` | `Equal{T}`              |
-|       `!=` | `NotEqual{T}`           |
+|       Syntax | Type Constant           |
+| -----------: | ----------------------- |
+|    `and`/`⩓` | `And{F1,F2}`            |
+|     `or`/`⩔` | `Or{F1,F2}`             |
+|   `isapprox` | `Approx{T,Kwargs}`      |
+|         `in` | `In{T}`                 |
+|        `!in` | `NotIn{T}`              |
+|          `<` | `Less{T}`               |
+|         `<=` | `LessThanOrEqual{T}`    |
+|          `>` | `Greater{T}`            |
+|         `>=` | `GreaterThanOrEqual{T}` |
+|         `==` | `Equal{T}`              |
+|    `isequal` | `Equal{T}`              |
+|         `!=` | `NotEqual{T}`           |
+| `startswith` | `StartsWith{T}`         |
+|   `endswith` | `EndsWith{T}`           |
+

@@ -23,7 +23,9 @@ export
     GreaterThanOrEqual,
     Not,
     NotIn,
-    NotApprox
+    NotApprox,
+    EndsWith,
+    StartsWith
 
 if length(methods(isapprox, Tuple{Any})) == 0
     Base.isapprox(y; kwargs...) = x -> isapprox(x, y; kwargs...)
