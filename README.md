@@ -4,7 +4,6 @@
 
 Chain operators `Base.Fix2` operations with two possible methods.
 
-
 `and` is synonymous with bitwise `&` operator but may be used to chain multiple `Fix1` or
 `Fix2` operations. The `⩓` (`\\And<TAB>`) operator may be used in its place (e.g., `x ⩓ y`).
 
@@ -40,3 +39,20 @@ true
 julia> or(<(5) ⩔ >(1), >(2))(3)  # ⩔ == \\Or
 true
 ```
+
+## Conveniant Type Constants
+
+|     Syntax | Type Constant           |
+| ---------: | ----------------------- |
+|  `and`/`⩓` | `And{F1,F2}`            |
+|   `or`/`⩔` | `Or{F1,F2}`             |
+| `isapprox` | `Approx{T,Kwargs}`      |
+|       `in` | `In{T}`                 |
+|      `!in` | `NotIn{T}`              |
+|        `<` | `Less{T}`               |
+|       `<=` | `LessThanOrEqual{T}`    |
+|        `>` | `Greater{T}`            |
+|       `>=` | `GreaterThanOrEqual{T}` |
+|       `==` | `Equal{T}`              |
+|  `isequal` | `Equal{T}`              |
+|       `!=` | `NotEqual{T}`           |
