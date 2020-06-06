@@ -7,6 +7,81 @@
 `ChainedFixes.jl` provides useful tools for interacting with functions where arguments are fixed to them.
 This includes support for those found in Julia's `Base` module (`Base.Fix1`, `Base.Fix2`) and exported from `ChainedFixes` (`ChainedFix` and `NFix`).
 
+Some simple functionality available form this package is chaining any fixed function.
+```julia
+julia> using ChainedFixes
+
+julia> gt_or_lt = or(>(10), <(5));
+
+julia> gt_or_lt(2)
+true
+
+julia> gt_or_lt(6)
+false
+
+
+julia> gt_and_lt = and(>(1), <(5));
+
+julia> gt_and_lt(2)
+true
+
+julia> gt_and_lt(0)
+false
+```
+
+There's more convenient syntax for these available in the Julia REPL.
+```julia
+julia> gt_or_lt = >(10) ⩔ <(5); # \Or<TAB>
+
+julia> gt_or_lt(2)
+true
+
+julia> gt_or_lt(6)
+false
+
+
+julia> gt_and_lt = >(1) ⩓ <(5); # \And<TAB>
+
+julia> gt_and_lt(2)
+true
+
+julia> gt_and_lt(0)
+false
+```
+
+Any function can have methods fixed to it with the `NFix` function.
+
+```julia
+julia> fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1);
+
+julia> fxn1(x::Integer, y::AbstractString, z::AbstractFloat) = Val(2);
+
+julia> fxn1(x::AbstractFloat, y::Integer, z::AbstractString) = Val(3);
+
+julia> fxn2(; x, y, z) = fxn1(x, y, z);
+
+julia> fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...));
+
+julia> NFix{(1,2)}(fxn1, 1, 2.0)("a")
+Val{1}()
+
+julia> NFix{(1,3)}(fxn1, 1, 2.0)("a")
+Val{2}()
+
+julia> NFix{(1,3)}(fxn1, 1.0, "")(2)
+Val{3}()
+
+julia> NFix(fxn2, x=1, y=2.0)(z = "a")
+Val{1}()
+
+julia> NFix(fxn2, x=1, z=2.0)(y="a")
+Val{2}()
+
+julia> NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")(""; y = 1)
+(Val{1}(), Val{3}())
+
+```
+
 
 ## Constants
 

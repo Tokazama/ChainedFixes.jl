@@ -12,6 +12,7 @@ empty_pairs = Pairs((), NamedTuple{(),Tuple{}}(()))
 @test @inferred(getfxn(1)) == identity
 @test @inferred(getfxn(+)) == +
 
+@test !is_fixed_function(1)
 
 @testset "Fix1" begin
     fix1_fxn = Fix1(<, 1)
@@ -135,6 +136,11 @@ end
     @test @inferred(and(>(10), >(1))) == >(10)
     @test @inferred(and(>=(1), >=(10))) == >=(10)
     @test @inferred(and(>=(10), >=(1))) == >=(10)
+
+    and_fxn = and(true, <(5))
+    @test @inferred(getfxn(and_fxn)) == and
+    @test @inferred(getargs(and_fxn)) == (true, <(5))
+    @test @inferred(ChainedFixes.positions(and_fxn)) == (1, 2)
 end
 
 @testset "or" begin
@@ -149,6 +155,10 @@ end
     @test @inferred(or(>(10), >(1))) == >(1)
     @test @inferred(or(>=(1), >=(10))) == >=(1)
     @test @inferred(or(>=(10), >=(1))) == >=(1)
+
+    or_fxn = or(true, <(5))
+    @test getfxn(or_fxn) == or
+    @test getargs(or_fxn) == (true, <(5))
 end
 
 fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1)
@@ -158,6 +168,7 @@ fxn1(x::AbstractFloat, y::AbstractString, z::Integer) = Val(4)
 fxn1(x::AbstractString, y::Integer, z::AbstractFloat) = Val(5)
 fxn1(x::AbstractString, y::AbstractFloat, z::Integer) = Val(6)
 fxn2(; x, y, z) = fxn1(x, y, z)
+fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...))
 
 fix1 = NFix{(1,2)}(fxn1, 1, 2.0)
 @test @inferred(fix1("a")) === Val(1)
@@ -195,6 +206,9 @@ fix11 = NFix(fxn2, y=1, z=1.0)
 
 fix12 = NFix(fxn2, x="", y=1.0, z=1)
 @test @inferred(fix12()) === Val(6)
+
+fix13 = NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")
+@test @inferred(fix13(""; y = 1)) === (Val{1}(), Val{3}())
 
 # positions must be NTuple{N,Int}
 @test_throws ErrorException NFix{(1.0,2,3)}(fxn1, "", 1.0, 1)

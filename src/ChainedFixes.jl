@@ -260,10 +260,9 @@ getargs(x) = (x,)
 getargs(x::Fix2) = (getfield(x, :x),)
 getargs(x::Fix1) = (getfield(x, :x),)
 getargs(x::Approx) = (getfield(x, :y),)
-getargs(x::Tuple) = x
 getargs(x::NFix) = getfield(x, :args)
 getargs(x::Not) = getargs(getfield(x, :f))
-
+getargs(x::ChainedFix) = (getfield(x, :f1), getfield(x, :f2))
 
 """
     getkwargs(f) -> Pairs
@@ -292,6 +291,7 @@ getkwargs(x::Not) = getkwargs(getfield(x, :f))
 Given a fixed function `f`, returns raw method without any fixed arguments.
 """
 getfxn(x) = identity
+getfxn(x::ChainedFix) = getfield(x, :link)
 getfxn(x::Function) = x
 getfxn(x::NFix) = getfield(x, :f)
 getfxn(x::Fix1) = getfield(x, :f)
@@ -311,6 +311,7 @@ positions(x::Fix1) = (1,)
 positions(x::Fix2) = (2,)
 positions(x::NFix{P}) where {P} = P
 positions(x::Not) = positions(getkwargs(getfield(x, :f)))
+positions(x::ChainedFix) = (1, 2)
 
 """
     execute(f, args...; kwargs...) -> f(args...; kwargs...)
