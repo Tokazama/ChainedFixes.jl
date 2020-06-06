@@ -262,8 +262,7 @@ getargs(x::Fix1) = (getfield(x, :x),)
 getargs(x::Approx) = (getfield(x, :y),)
 getargs(x::Tuple) = x
 getargs(x::NFix) = getfield(x, :args)
-getargs(x::Not) = (getfield(x, :f),)
-getargs(x::Not{<:Function}) = getargs(getfield(x, :f))
+getargs(x::Not) = getargs(getfield(x, :f))
 
 
 """
@@ -285,7 +284,7 @@ pairs(::NamedTuple) with 1 entry:
 getkwargs(x) = Pairs((), NamedTuple{(),Tuple{}}(()))
 getkwargs(x::Approx) = getfield(x, :kwargs)
 getkwargs(x::NFix) = getfield(x, :kwargs)
-getkwargs(x::Not{<:Function}) = getkwargs(getfield(x, :f))
+getkwargs(x::Not) = getkwargs(getfield(x, :f))
 
 """
     getfxn(f) -> Function
@@ -311,6 +310,7 @@ positions(x) = ()
 positions(x::Fix1) = (1,)
 positions(x::Fix2) = (2,)
 positions(x::NFix{P}) where {P} = P
+positions(x::Not) = positions(getkwargs(getfield(x, :f)))
 
 """
     execute(f, args...; kwargs...) -> f(args...; kwargs...)

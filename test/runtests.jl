@@ -2,11 +2,25 @@ using Test
 using ChainedFixes
 using Documenter
 using Base.Iterators: Pairs
+using Base: Fix1
 
 empty_pairs = Pairs((), NamedTuple{(),Tuple{}}(()))
 
+@test @inferred(ChainedFixes.positions(1)) == ()
 @test @inferred(ChainedFixes.positions(<(1))) == (2,)
-@test @inferred(ChainedFixes.positions(Base.Fix1(==, 1))) == (1,)
+
+@test @inferred(getfxn(1)) == identity
+@test @inferred(getfxn(+)) == +
+
+
+@testset "Fix1" begin
+    fix1_fxn = Fix1(<, 1)
+    @test is_fixed_function(typeof(fix1_fxn))
+    @test @inferred(getargs(fix1_fxn)) == (1,)
+    @test @inferred(getfxn(fix1_fxn)) == <
+    @test @inferred(getkwargs(fix1_fxn)) == empty_pairs
+    @test @inferred(ChainedFixes.positions(fix1_fxn)) == (1,)
+end
 
 @testset "Not" begin
     notfxn = !(+)
@@ -16,6 +30,7 @@ empty_pairs = Pairs((), NamedTuple{(),Tuple{}}(()))
     @test @inferred(getfxn(notfxn)) == !
     @test @inferred(getargs(notfxn)) == (+,)
     @test @inferred(getkwargs(notfxn)) == empty_pairs
+    @test @inferred(ChainedFixes.positions(notfxn)) == ()
 end
 
 @testset "In" begin
