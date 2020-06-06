@@ -1,4 +1,6 @@
-using Test, ChainedFixes
+using Test
+using ChainedFixes
+using Documenter
 
 @testset "Not" begin
     @test isa(!(+), Not)
@@ -75,3 +77,8 @@ end
     @test @inferred(or(>=(1), >=(10))) == >=(1)
     @test @inferred(or(>=(10), >=(1))) == >=(1)
 end
+
+@testset "docs" begin
+    doctest(ChainedFixes)
+end
+
