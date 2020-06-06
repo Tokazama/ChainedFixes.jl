@@ -1,19 +1,21 @@
-
 module ChainedFixes
 
-using Base: Fix2
+@doc let path = joinpath(dirname(@__DIR__), "README.md")
+    include_dependency(path)
+    replace(read(path, String), r"^```julia"m => "```jldoctest README")
+end ChainedFixes
+
+using Base: Fix1, Fix2, tail
+using Base.Iterators: Pairs
 
 export
+    # Types
     ChainedFix,
-    # ands
-    and,
-    ⩓,
+    NFix,
+    # Constants
     And, 
-    # ors
-    or,
-    ⩔,
-    Or,
     Approx,
+    Or,
     In,
     Less,
     Greater,
@@ -25,7 +27,17 @@ export
     NotIn,
     NotApprox,
     EndsWith,
-    StartsWith
+    StartsWith,
+    # methods
+    and,
+    ⩓,
+    execute,
+    getargs,
+    getfxn,
+    getkwargs,
+    is_fixed_function,
+    or,
+    ⩔
 
 if length(methods(isapprox, Tuple{Any})) == 0
     Base.isapprox(y; kwargs...) = x -> isapprox(x, y; kwargs...)
@@ -40,6 +52,7 @@ const StartsWith{T} = Fix2{typeof(startswith),T}
 if length(methods(endswith, Tuple{Any})) == 0
     Base.endswith(s) = Base.Fix2(endswith, s)
 end
+
 const EndsWith{T} = Fix2{typeof(endswith),T}
 
 const Not{T} = (typeof(!(sum)).name.wrapper){T}
@@ -63,7 +76,6 @@ const GreaterThanOrEqual{T} = Fix2{typeof(>=),T}
 const LessThanOrEqual{T} = Fix2{typeof(<=),T}
 
 # Compose ∘
-
 # schroeder et al., Cerebral cortex 1998
 # Schroeder, Mehta, Foxe, Front Biosc, 2001
 # Daniel polland - adaptive resonance
@@ -159,4 +171,167 @@ const And{F1,F2} = ChainedFix{typeof(and),F1,F2}
 
 const Or{F1,F2} = ChainedFix{typeof(or),F1,F2}
 
+# TODO Should have better arguments here
+struct NFix{Positions,F<:Function,Args<:Tuple,Kwargs<:Pairs} <: Function
+    f::F
+    args::Args
+    kwargs::Kwargs
+
+    function NFix{P,F,Args,Kwargs}(
+        f::F,
+        args::Args,
+        kwargs::Kwargs
+    ) where {P,F,Args<:Tuple,Kwargs<:Pairs}
+
+        if !isa(P, Tuple{Vararg{Int}})
+            error("Positions must be a tuple of Int")
+        elseif length(P) != length(args)
+            error("Number of fixed positions and fixed arguments must be equal," *
+                  " received $(length(P)) positions and $(length(args)) positional arguments.")
+        elseif !issorted(P)
+            error("Positions must be sorted, got $P.")
+        else
+            return new{P,F,Args,Kwargs}(f, args, kwargs)
+        end
+    end
+
+    function NFix{P}(f::F, args::Args, kwargs::Kwargs) where {P,F,Args<:Tuple,Kwargs<:Pairs}
+        return NFix{P,F,Args,Kwargs}(f, args, kwargs)
+    end
+
+    NFix{P}(f, args...; kwargs...) where {P} = NFix{P}(f, args, kwargs)
+
+    function NFix(f, args::NTuple{N,Any}, kwargs::Pairs) where {N}
+        return NFix{ntuple(i -> i, Val(N))}(f, args, kwargs)
+    end
+
+    NFix(f, args...; kwargs...) = NFix(f, args, kwargs)
+end
+
+makeargs(p::Tuple{}, argsnew::Tuple{}, args::Tuple{}, cnt::Int) = ()
+makeargs(p::Tuple{}, argsnew::Tuple, args::Tuple{}, cnt::Int) = argsnew
+makeargs(p::Tuple, argsnew::Tuple{}, args::Tuple, cnt::Int) = args
+@inline function makeargs(p::Tuple, argsnew::Tuple, args::Tuple, cnt::Int)
+    if first(p) === cnt
+        return (first(args), makeargs(tail(p), argsnew, tail(args), cnt + 1)...)
+    else
+        return (first(argsnew), makeargs(tail(p), tail(argsnew), args, cnt + 1)...)
+    end
+end
+
+###
+### Traits
+###
+
+"""
+    is_fixed_function(f) -> Bool
+
+Returns `true` if `f` is a callable function that already has arguments fixed to it.
+A "fixed" function can only be called on one argument (e.g., `f(arg)`) and all other
+arguments are already assigned. Functions that return true should also have `getargs`
+defined.
+"""
+is_fixed_function(::T) where {T} = is_fixed_function(T)
+is_fixed_function(::Type{T}) where {T} = false
+is_fixed_function(::Type{<:Fix2}) = true
+is_fixed_function(::Type{<:Fix1}) = true
+is_fixed_function(::Type{<:Approx}) = true
+is_fixed_function(::Type{<:ChainedFix}) = true
+is_fixed_function(::Type{<:NFix}) = true
+is_fixed_function(::Type{<:Not}) = true
+
+
+"""
+    getargs(f) -> Tuple
+
+Return a tuple of fixed positional arguments of the fixed function `f`.
+
+## Examples
+
+```jldoctest
+julia> using ChainedFixes
+
+julia> getargs(==(1))
+(1,)
+
+```
+"""
+getargs(x) = (x,)
+getargs(x::Fix2) = (getfield(x, :x),)
+getargs(x::Fix1) = (getfield(x, :x),)
+getargs(x::Approx) = (getfield(x, :y),)
+getargs(x::NFix) = getfield(x, :args)
+getargs(x::Not) = getargs(getfield(x, :f))
+getargs(x::ChainedFix) = (getfield(x, :f1), getfield(x, :f2))
+
+"""
+    getkwargs(f) -> Pairs
+
+Return the fixed keyword arguments of the fixed function `f`.
+
+## Examples
+
+```jldoctest
+julia> using ChainedFixes
+
+julia> getkwargs(isapprox(1, atol=2))
+pairs(::NamedTuple) with 1 entry:
+  :atol => 2
+
+```
+"""
+getkwargs(x) = Pairs((), NamedTuple{(),Tuple{}}(()))
+getkwargs(x::Approx) = getfield(x, :kwargs)
+getkwargs(x::NFix) = getfield(x, :kwargs)
+getkwargs(x::Not) = getkwargs(getfield(x, :f))
+
+"""
+    getfxn(f) -> Function
+
+Given a fixed function `f`, returns raw method without any fixed arguments.
+"""
+getfxn(x) = identity
+getfxn(x::ChainedFix) = getfield(x, :link)
+getfxn(x::Function) = x
+getfxn(x::NFix) = getfield(x, :f)
+getfxn(x::Fix1) = getfield(x, :f)
+getfxn(x::Fix2) = getfield(x, :f)
+getfxn(x::Approx) = isapprox
+getfxn(x::Not) = !
+getfxn(x::NotIn) = !in
+getfxn(x::NotApprox) = !isapprox
+
+"""
+    positions(f) -> Tuple{Vararg{Int}}
+
+Returns positions of new argument calls to `f`. For example, `Fix2` would return (2,)
+"""
+positions(x) = ()
+positions(x::Fix1) = (1,)
+positions(x::Fix2) = (2,)
+positions(x::NFix{P}) where {P} = P
+positions(x::Not) = positions(getkwargs(getfield(x, :f)))
+positions(x::ChainedFix) = (1, 2)
+
+"""
+    execute(f, args...; kwargs...) -> f(args...; kwargs...)
+
+Executes function `f` with provided positional arugments (`args...`) and
+keyword arguments (`kwargs...`).
+"""
+@inline execute(f, args...; kwargs...) = execute(f, args, kwargs)
+@inline function execute(f, args::Tuple, kwargs::Pairs)
+    if is_fixed_function(f)
+        return getfxn(f)(
+            makeargs(positions(f), args, getargs(f), 1)...;
+            getkwargs(f)..., kwargs...
+        )
+    else
+        return f(args...; kwargs...)
+    end
+end
+
+(f::NFix)(args...; kwargs...) = execute(f, args, kwargs)
+
 end # module
+

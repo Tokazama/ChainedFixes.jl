@@ -1,61 +1,108 @@
 # ChainedFixes
 
 [![Build Status](https://travis-ci.com/Tokazama/ChainedFixes.jl.svg?branch=master)](https://travis-ci.com/Tokazama/ChainedFixes.jl) [![codecov](https://codecov.io/gh/Tokazama/ChainedFixes.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/Tokazama/ChainedFixes.jl)
+[![stable-docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://Tokazama.github.io/ChainedFixes.jl/stable)
+[![dev-docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://Tokazama.github.io/ChainedFixes.jl/dev)
 
-Chain operators `Base.Fix2` operations with two possible methods.
+`ChainedFixes.jl` provides useful tools for interacting with functions where arguments are fixed to them.
+This includes support for those found in Julia's `Base` module (`Base.Fix1`, `Base.Fix2`) and exported from `ChainedFixes` (`ChainedFix` and `NFix`).
 
-`and` is synonymous with bitwise `&` operator but may be used to chain multiple `Fix1` or
-`Fix2` operations. The `⩓` (`\\And<TAB>`) operator may be used in its place (e.g., `x ⩓ y`).
-
+Some simple functionality available form this package is chaining any fixed function.
 ```julia
 julia> using ChainedFixes
 
-julia> and(true, <(5))(1)
+julia> gt_or_lt = or(>(10), <(5));
+
+julia> gt_or_lt(2)
 true
 
-julia> and(<(5), false)(1)
+julia> gt_or_lt(6)
 false
 
-julia> and(and(<(5), >(1)), >(2))(3)
+
+julia> gt_and_lt = and(>(1), <(5));
+
+julia> gt_and_lt(2)
 true
 
-julia> and(<(5) ⩓ >(1), >(2))(3)  # ⩓ == \\And
-true
-
+julia> gt_and_lt(0)
+false
 ```
 
-`or` is synonymous with bitwise `|` operator but may be used to chain multiple `Fix1` or
-`Fix2` operations. The `⩔` (`\\Or<TAB>`) operator may be used in its place (e.g., `x ⩔ y`).
+There's more convenient syntax for these available in the Julia REPL.
+```julia
+julia> gt_or_lt = >(10) ⩔ <(5); # \Or<TAB>
+
+julia> gt_or_lt(2)
+true
+
+julia> gt_or_lt(6)
+false
+
+
+julia> gt_and_lt = >(1) ⩓ <(5); # \And<TAB>
+
+julia> gt_and_lt(2)
+true
+
+julia> gt_and_lt(0)
+false
+```
+
+Any function can have methods fixed to it with the `NFix` function.
 
 ```julia
-julia> using ChainedFixes
+julia> fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1);
 
-julia> or(true, <(5))(1)
-true
+julia> fxn1(x::Integer, y::AbstractString, z::AbstractFloat) = Val(2);
 
-julia> or(<(5), false)(1)
-true
+julia> fxn1(x::AbstractFloat, y::Integer, z::AbstractString) = Val(3);
 
-julia> or(<(5) ⩔ >(1), >(2))(3)  # ⩔ == \\Or
-true
+julia> fxn2(; x, y, z) = fxn1(x, y, z);
+
+julia> fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...));
+
+julia> NFix{(1,2)}(fxn1, 1, 2.0)("a")
+Val{1}()
+
+julia> NFix{(1,3)}(fxn1, 1, 2.0)("a")
+Val{2}()
+
+julia> NFix{(1,3)}(fxn1, 1.0, "")(2)
+Val{3}()
+
+julia> NFix(fxn2, x=1, y=2.0)(z = "a")
+Val{1}()
+
+julia> NFix(fxn2, x=1, z=2.0)(y="a")
+Val{2}()
+
+julia> NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")(""; y = 1)
+(Val{1}(), Val{3}())
+
 ```
 
-## Conveniant Type Constants
 
-|       Syntax | Type Constant           |
-| -----------: | ----------------------- |
-|    `and`/`⩓` | `And{F1,F2}`            |
-|     `or`/`⩔` | `Or{F1,F2}`             |
-|   `isapprox` | `Approx{T,Kwargs}`      |
-|         `in` | `In{T}`                 |
-|        `!in` | `NotIn{T}`              |
-|          `<` | `Less{T}`               |
-|         `<=` | `LessThanOrEqual{T}`    |
-|          `>` | `Greater{T}`            |
-|         `>=` | `GreaterThanOrEqual{T}` |
-|         `==` | `Equal{T}`              |
-|    `isequal` | `Equal{T}`              |
-|         `!=` | `NotEqual{T}`           |
-| `startswith` | `StartsWith{T}`         |
-|   `endswith` | `EndsWith{T}`           |
+## Constants
+
+The following constants are exported.
+
+| Syntax                                    | Type Constant           |
+|------------------------------------------:|:------------------------|
+| `and(f1::F1, f1::F2)`/`⩓(f1::F1, f1::F2)` | `And{F1,F2}`            |
+| `or(f1::F1, f1::F2)`/`⩔(f1::F1, f1::F2)`  | `Or{F1,F2}`             |
+| `isapprox(x::T; kwargs::Kwargs)`          | `Approx{T,Kwargs}`      |
+| `!isapprox(x::T; kwargs::Kwargs)`         | `NotApprox{T,Kwargs}`   |
+| `in(x::T)`                                | `In{T}`                 |
+| `!in(x::T)`                               | `NotIn{T}`              |
+| `<(x::T)`                                 | `Less{T}`               |
+| `<=(x::T)`                                | `LessThanOrEqual{T}`    |
+| `>(x::T)`                                 | `Greater{T}`            |
+| `>=(x::T)`                                | `GreaterThanOrEqual{T}` |
+| `==(x::T)`                                | `Equal{T}`              |
+| `isequal(x::T)`                           | `Equal{T}`              |
+| `!=(x::T)`                                | `NotEqual{T}`           |
+| `startswith(x::T)`                        | `StartsWith{T}`         |
+| `endswith(x::T)`                          | `EndsWith{T}`           |
+
 
