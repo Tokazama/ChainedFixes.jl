@@ -32,6 +32,10 @@ export
     and,
     ⩓,
     execute,
+    getargs,
+    getfxn,
+    getkwargs,
+    is_fixed_function,
     or,
     ⩔
 
@@ -167,7 +171,7 @@ const And{F1,F2} = ChainedFix{typeof(and),F1,F2}
 
 const Or{F1,F2} = ChainedFix{typeof(or),F1,F2}
 
-# TODO Should position args refer to the positions of fixed arguments or new arguments
+# TODO Should have better arguments here
 struct NFix{Positions,F<:Function,Args<:Tuple,Kwargs<:Pairs} <: Function
     f::F
     args::Args
@@ -179,11 +183,15 @@ struct NFix{Positions,F<:Function,Args<:Tuple,Kwargs<:Pairs} <: Function
         kwargs::Kwargs
     ) where {P,F,Args<:Tuple,Kwargs<:Pairs}
 
-        if P isa Tuple{Vararg{Int}}
-            return new{P,F,Args,Kwargs}(f, args, kwargs)
+        if !isa(P, Tuple{Vararg{Int}})
+            error("Positions must be a tuple of Int")
+        elseif length(P) != length(args)
+            error("Number of fixed positions and fixed arguments must be equal," *
+                  " received $(length(P)) positions and $(length(args)) positional arguments.")
+        elseif !issorted(P)
+            error("Positions must be sorted, got $P.")
         else
-            # more specific error
-            error("positions must be a tuple of Int")
+            return new{P,F,Args,Kwargs}(f, args, kwargs)
         end
     end
 
@@ -193,9 +201,22 @@ struct NFix{Positions,F<:Function,Args<:Tuple,Kwargs<:Pairs} <: Function
 
     NFix{P}(f, args...; kwargs...) where {P} = NFix{P}(f, args, kwargs)
 
-    NFix(f, args::Tuple, kwargs::Pairs) = NFix{()}(f, args, kwargs)
+    function NFix(f, args::NTuple{N,Any}, kwargs::Pairs) where {N}
+        return NFix{ntuple(i -> i, Val(N))}(f, args, kwargs)
+    end
 
     NFix(f, args...; kwargs...) = NFix(f, args, kwargs)
+end
+
+makeargs(p::Tuple{}, argsnew::Tuple{}, args::Tuple{}, cnt::Int) = ()
+makeargs(p::Tuple{}, argsnew::Tuple, args::Tuple{}, cnt::Int) = argsnew
+makeargs(p::Tuple, argsnew::Tuple{}, args::Tuple, cnt::Int) = args
+@inline function makeargs(p::Tuple, argsnew::Tuple, args::Tuple, cnt::Int)
+    if first(p) === cnt
+        return (first(args), makeargs(tail(p), argsnew, tail(args), cnt + 1)...)
+    else
+        return (first(argsnew), makeargs(tail(p), tail(argsnew), args, cnt + 1)...)
+    end
 end
 
 ###
@@ -217,10 +238,23 @@ is_fixed_function(::Type{<:Fix1}) = true
 is_fixed_function(::Type{<:Approx}) = true
 is_fixed_function(::Type{<:ChainedFix}) = true
 is_fixed_function(::Type{<:NFix}) = true
+is_fixed_function(::Type{<:Not}) = true
+
 
 """
-    getargs(x) -> Tuple
+    getargs(f) -> Tuple
 
+Return a tuple of fixed positional arguments of the fixed function `f`.
+
+## Examples
+
+```jldoctest
+julia> using ChainedFixes
+
+julia> getargs(==(1))
+(1,)
+
+```
 """
 getargs(x) = (x,)
 getargs(x::Fix2) = (getfield(x, :x),)
@@ -228,56 +262,55 @@ getargs(x::Fix1) = (getfield(x, :x),)
 getargs(x::Approx) = (getfield(x, :y),)
 getargs(x::Tuple) = x
 getargs(x::NFix) = getfield(x, :args)
+getargs(x::Not) = (getfield(x, :f),)
+getargs(x::Not{<:Function}) = getargs(getfield(x, :f))
+
 
 """
-    getkwargs(x) -> Pairs
+    getkwargs(f) -> Pairs
+
+Return the fixed keyword arguments of the fixed function `f`.
+
+## Examples
+
+```jldoctest
+julia> using ChainedFixes
+
+julia> getkwargs(isapprox(1, atol=2))
+pairs(::NamedTuple) with 1 entry:
+  :atol => 2
+
+```
 """
 getkwargs(x) = Pairs((), NamedTuple{(),Tuple{}}(()))
 getkwargs(x::Approx) = getfield(x, :kwargs)
 getkwargs(x::NFix) = getfield(x, :kwargs)
+getkwargs(x::Not{<:Function}) = getkwargs(getfield(x, :f))
 
 """
-    getfxn(x) -> Function
+    getfxn(f) -> Function
+
+Given a fixed function `f`, returns raw method without any fixed arguments.
 """
 getfxn(x) = identity
 getfxn(x::Function) = x
 getfxn(x::NFix) = getfield(x, :f)
 getfxn(x::Fix1) = getfield(x, :f)
 getfxn(x::Fix2) = getfield(x, :f)
-
+getfxn(x::Approx) = isapprox
+getfxn(x::Not) = !
+getfxn(x::NotIn) = !in
+getfxn(x::NotApprox) = !isapprox
 
 """
-    positions(x) -> Tuple{Vararg{Int}}
+    positions(f) -> Tuple{Vararg{Int}}
 
-Returns positions of new argument calls to `x`. For example, `Fix2` would return (2,)
+Returns positions of new argument calls to `f`. For example, `Fix2` would return (2,)
 """
 positions(x) = ()
 positions(x::Fix1) = (1,)
 positions(x::Fix2) = (2,)
 positions(x::NFix{P}) where {P} = P
-
-
-# makeargs
-makeargs(f, argsnew) = makeargs(positions(f), argsnew, getargs(f))
-@inline function makeargs(p::NTuple{N,Int}, argsnew::NTuple{M,Any}, args::Tuple) where {N,M}
-    if N === M
-        return _makeargs(p, argsnew, args)
-    else
-        throw(ArgumentError("expected $N positional arguments. Received $M"))
-    end
-end
-_makeargs(::Tuple{}, ::Tuple{}, args::Tuple) = args
-@inline function _makeargs(p::Tuple, argsnew::Tuple, args::Tuple)
-    return _makeargs(tail(p), tail(argsnew), insertarg(args, first(argsnew), first(p)))
-end
-
-@inline function insertarg(args::Tuple, newarg, i::Int)
-    if i === 1
-        return (newarg, args...)
-    else
-        return (first(args), insertarg(tail(args), newarg, i - 1)...)
-    end
-end
 
 """
     execute(f, args...; kwargs...) -> f(args...; kwargs...)
@@ -285,41 +318,13 @@ end
 Executes function `f` with provided positional arugments (`args...`) and
 keyword arguments (`kwargs...`).
 """
-execute(f, args...; kwargs...) = execute(f, args, kwargs)
-execute(f, args::Tuple, kwargs::Pairs) = _execute(f, args, kwargs)
-execute(f, args::Tuple{}, kwargs::Pairs) = _execute(f, kwargs)
-execute(f, ::Tuple{}, ::Pairs{Union{},Union{},NamedTuple{(),Tuple{}},Tuple{}}) = _execute(f)
-function execute(f, args::Tuple, ::Pairs{Union{},Union{},NamedTuple{(),Tuple{}},Tuple{}})
-    return _execute(f, args)
-end
-
-@inline function _execute(f)
+@inline execute(f, args...; kwargs...) = execute(f, args, kwargs)
+@inline function execute(f, args::Tuple, kwargs::Pairs)
     if is_fixed_function(f)
-        return getfxn(f)()
-    else
-        return f()
-    end
-end
-
-@inline function _execute(f, kwargs::Pairs)
-    if is_fixed_function(f)
-        return getfxn(f)(; kwargs..., getkwargs(f)...)
-    else
-        return f(; kwargs...)
-    end
-end
-
-@inline function _execute(f, args::Tuple)
-    if is_fixed_function(f)
-        return getfxn(f)(makeargs(f, args)...)
-    else
-        return f(args...)
-    end
-end
-
-@inline function _execute(f, args::Tuple, kwargs::Pairs)
-    if is_fixed_function(f)
-        return getfxn(f)(makeargs(f, args)...; kwargs..., getkwargs(f)...)
+        return getfxn(f)(
+            makeargs(positions(f), args, getargs(f), 1)...;
+            getkwargs(f)..., kwargs...
+        )
     else
         return f(args...; kwargs...)
     end
