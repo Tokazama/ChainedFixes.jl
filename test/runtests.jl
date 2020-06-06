@@ -138,6 +138,7 @@ end
     @test @inferred(and(>=(10), >=(1))) == >=(10)
 
     and_fxn = and(true, <(5))
+    @test @inferred(is_fixed_function(typeof(and_fxn)))
     @test @inferred(getfxn(and_fxn)) == and
     @test @inferred(getargs(and_fxn)) == (true, <(5))
     @test @inferred(ChainedFixes.positions(and_fxn)) == (1, 2)
@@ -218,6 +219,8 @@ fix13 = NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")
 @test_throws ErrorException NFix{(1,3,2)}(fxn1, "", 1.0)
 
 @test is_fixed_function(fix1)
+
+@test @inferred(ChainedFixes.execute(+, 1, 2)) == 3
 
 @testset "docs" begin
     doctest(ChainedFixes)
