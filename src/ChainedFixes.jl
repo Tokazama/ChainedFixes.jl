@@ -75,13 +75,18 @@ const GreaterThanOrEqual{T} = Fix2{typeof(>=),T}
 
 const LessThanOrEqual{T} = Fix2{typeof(<=),T}
 
-# Compose ∘
-# schroeder et al., Cerebral cortex 1998
-# Schroeder, Mehta, Foxe, Front Biosc, 2001
-# Daniel polland - adaptive resonance
+"""
+    ChainedFix{L,F1,F2}
+
+Internal type for composing functions from [`and`](@ref) and [`or`](@ref). For
+example, `and(x::Function, y::Function)` becomes `ChainedFix(and, x, y)`.
+"""
 struct ChainedFix{L,F1,F2} <: Function
+    "the method the \"links\" `f1` and `f2` (i.e. link(f1, f2))"
     link::L
+    "the first position in the `link(f1, f2)` call"
     f1::F1
+    "the second position in the `link(f1, f2)` call"
     f2::F2
 end
 
@@ -93,6 +98,7 @@ end
 
 """
     and(x, y)
+    x ⩓ y
 
 Synonymous with bitwise `&` operator but may be used to chain multiple `Fix1` or
 `Fix2` operations. The `⩓` (`\\And<TAB>`) operator may be used in its place (e.g., `x ⩓ y`).
@@ -119,13 +125,9 @@ and(x, y) = x & y
 and(x::Function, y) = ChainedFix(and, x, y)
 and(x, y::Function) = ChainedFix(and, x, y)
 and(x::Function, y::Function) = ChainedFix(and, x, y)
-
 and(f1::Less{T}, f2::Less{T}) where {T} = (f1.x < f2.x) ? f1 : f2
-
 and(f1::LessThanOrEqual{T}, f2::LessThanOrEqual{T}) where {T} = (f1.x < f2.x) ? f1 : f2
-
 and(f1::Greater{T}, f2::Greater{T}) where {T} = (f1.x > f2.x) ? f1 : f2
-
 and(f1::GreaterThanOrEqual{T}, f2::GreaterThanOrEqual{T}) where {T} = (f1.x > f2.x) ? f1 : f2
 
 # \And
@@ -133,6 +135,7 @@ and(f1::GreaterThanOrEqual{T}, f2::GreaterThanOrEqual{T}) where {T} = (f1.x > f2
 
 """
     or(x, y)
+    x ⩔ y
 
 Synonymous with bitwise `|` operator but may be used to chain multiple `Fix1` or
 `Fix2` operations. The `⩔` (`\\Or<TAB>`) operator may be used in its place (e.g., `x ⩔ y`).
@@ -155,13 +158,9 @@ or(x, y) = x | y
 or(x::Function, y) = ChainedFix(or, x, y)
 or(x, y::Function) = ChainedFix(or, x, y)
 or(x::Function, y::Function) = ChainedFix(or, x, y)
-
 or(f1::Less{T}, f2::Less{T}) where {T} = (f1.x > f2.x) ? f1 : f2
-
 or(f1::LessThanOrEqual{T}, f2::LessThanOrEqual{T}) where {T} = (f1.x > f2.x) ? f1 : f2
-
 or(f1::Greater{T}, f2::Greater{T}) where {T} = (f1.x < f2.x) ? f1 : f2
-
 or(f1::GreaterThanOrEqual{T}, f2::GreaterThanOrEqual{T}) where {T} = (f1.x < f2.x) ? f1 : f2
 
 #\Or
@@ -171,7 +170,45 @@ const And{F1,F2} = ChainedFix{typeof(and),F1,F2}
 
 const Or{F1,F2} = ChainedFix{typeof(or),F1,F2}
 
-# TODO Should have better arguments here
+"""
+    NFix{P}(f::Function, args::Tuple, kwargs::Pairs)
+
+Allows fixing a tuple of `args` to the positions `P` (e.g., `(1,3)`) and the
+key word arguments `kwargs`.
+
+```jldoctest
+julia> using ChainedFixes
+
+julia> fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1);
+
+julia> fxn1(x::Integer, y::AbstractString, z::AbstractFloat) = Val(2);
+
+julia> fxn1(x::AbstractFloat, y::Integer, z::AbstractString) = Val(3);
+
+julia> fxn2(; x, y, z) = fxn1(x, y, z);
+
+julia> fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...));
+
+julia> NFix{(1,2)}(fxn1, 1, 2.0)("a")
+Val{1}()
+
+julia> NFix{(1,3)}(fxn1, 1, 2.0)("a")
+Val{2}()
+
+julia> NFix{(1,3)}(fxn1, 1.0, "")(2)
+Val{3}()
+
+julia> NFix(fxn2, x=1, y=2.0)(z = "a")
+Val{1}()
+
+julia> NFix(fxn2, x=1, z=2.0)(y="a")
+Val{2}()
+
+julia> NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")(""; y = 1)
+(Val{1}(), Val{3}())
+```
+
+"""
 struct NFix{Positions,F<:Function,Args<:Tuple,Kwargs<:Pairs} <: Function
     f::F
     args::Args
