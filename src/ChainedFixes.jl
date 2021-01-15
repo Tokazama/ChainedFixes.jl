@@ -76,6 +76,7 @@ const GreaterThanOrEqual{T} = Fix2{typeof(>=),T}
 
 const LessThanOrEqual{T} = Fix2{typeof(<=),T}
 
+
 """
     ChainedFix{L,F1,F2}
 
