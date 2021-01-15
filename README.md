@@ -62,22 +62,41 @@ julia> fxn2(; x, y, z) = fxn1(x, y, z);
 
 julia> fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...));
 
-julia> NFix{(1,2)}(fxn1, 1, 2.0)("a")
+julia> f = @nfix fxn1(1, 2.0, _)
+fxn1(1, 2.0, args...; kwargs...)
+
+julia> f("a")
 Val{1}()
 
-julia> NFix{(1,3)}(fxn1, 1, 2.0)("a")
+
+julia> f = @nfix fxn1(1, _, 2.0)
+fxn1(1, _, 2.0, args...; kwargs...)
+
+julia> f("a")
 Val{2}()
 
-julia> NFix{(1,3)}(fxn1, 1.0, "")(2)
+julia> f = @nfix fxn1(1.0, _, "")
+fxn1(1.0, _, "", args...; kwargs...)
+
+julia> f(2)
 Val{3}()
 
-julia> NFix(fxn2, x=1, y=2.0)(z = "a")
+julia> f = @nfix fxn2(x=1, y=2.0)
+fxn2(args...; x = 1, y = 2.0, kwargs...)
+
+julia> f(z = "a")
 Val{1}()
 
-julia> NFix(fxn2, x=1, z=2.0)(y="a")
+julia> f = @nfix fxn2(x=1, z=2.0)
+fxn2(args...; x = 1, z = 2.0, kwargs...)
+
+julia> f(y = "a")
 Val{2}()
 
-julia> NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")(""; y = 1)
+julia> f = @nfix fxn3(1, 2.0; x = 1.0, z= "")
+fxn3(1, 2.0, args...; x = 1.0, z = , kwargs...)
+
+julia> f(""; y = 1)
 (Val{1}(), Val{3}())
 
 ```

@@ -9,6 +9,7 @@ using Base: Fix1, Fix2, tail
 using Base.Iterators: Pairs
 
 export
+    @nfix,
     # Types
     ChainedFix,
     NFix,
@@ -369,6 +370,100 @@ keyword arguments (`kwargs...`).
 end
 
 (f::NFix)(args...; kwargs...) = execute(f, args, kwargs)
+
+# TODO create show method for `NFix` that prints the function with the fixed
+# arguments printing in place, methods in place
+# e.g., isapprox(<missing>, 1, atol=2)
+
+function print_nfix(io::IO, f::NFix{P}) where {P}
+    print(io, "$(nameof(getfxn(f)))")
+    print(io, "(")
+    print_args(io, P, getargs(f))
+    print_kwargs(io, f)
+    print(io, ")")
+end
+
+Base.show(io::IO, ::MIME"text/plain", f::NFix) = print_nfix(io, f)
+
+print_args(io, pos::Tuple{}, args::Tuple{}) = print(io, "args...")
+function print_args(io, pos::Tuple{Vararg{Int}}, args::Tuple)
+    n = last(pos)
+    current_position = 1
+    i = 1
+    while current_position <= last(pos)
+        if current_position === pos[i]
+            print(io, repr(args[i]))
+            print(io, ", ")
+            i += 1
+            current_position += 1
+        else
+            print(io, "_, ")
+            current_position += 1
+        end
+    end
+    print(io, "args...")
+end
+
+function print_kwargs(io, f::NFix)
+    print(io, "; ")
+    for (k,v) in getkwargs(f)
+        print(io, "$k")
+        print(io, " = $v, ")
+    end
+    print(io, "kwargs...")
+end
+
+function _construct_pairs_expr(e::Expr)
+end
+
+macro nfix(f)
+    function_name = f.args[1]
+    narg = length(f.args)
+    argpos = 2
+    if f.args[2] isa Expr && f.args[2].head === :kw
+        pair_names = Expr(:tuple)
+        pair_args = Expr(:tuple)
+        for kw in f.args[argpos:end]
+            push!(pair_names.args, QuoteNode(kw.args[1]))
+            push!(pair_args.args, kw.args[2])
+        end
+        kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
+        args = Expr(:tuple)
+        pos = Expr(:tuple)
+    else
+        if f.args[2] isa Expr && f.args[2].head === :parameters
+            pair_names = Expr(:tuple)
+            pair_args = Expr(:tuple)
+            for kw in f.args[2].args
+                push!(pair_names.args, QuoteNode(kw.args[1]))
+                push!(pair_args.args, kw.args[2])
+            end
+            kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
+            argpos = 3
+        else
+            kwargs = :(Iterators.Pairs(NamedTuple{()}(()),()))
+        end
+        args = Expr(:tuple)
+        pos = Expr(:tuple)
+        if narg > argpos
+            itr = 1
+            for i in argpos:narg
+                if f.args[i] === :_
+                    itr += 1
+                else
+                    push!(pos.args, itr)
+                    push!(args.args, f.args[i])
+                    itr += 1
+                end
+            end
+        end
+    end
+    esc(
+    quote
+        NFix{$pos}($function_name, $args, $kwargs)
+    end
+    )
+end
 
 end # module
 
