@@ -372,10 +372,6 @@ end
 
 (f::NFix)(args...; kwargs...) = execute(f, args, kwargs)
 
-# TODO create show method for `NFix` that prints the function with the fixed
-# arguments printing in place, methods in place
-# e.g., isapprox(<missing>, 1, atol=2)
-
 function print_nfix(io::IO, f::NFix{P}) where {P}
     print(io, "$(nameof(getfxn(f)))")
     print(io, "(")
