@@ -50,7 +50,6 @@ false
 ```
 
 Any function can have methods fixed to it with the `NFix` function.
-
 ```julia
 julia> fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1);
 
@@ -101,6 +100,15 @@ julia> f(""; y = 1)
 
 ```
 
+We can create a chain a functions that act like an uncalled pipe (e.g., `|>`).
+A chain of fixed functions can be chained together via `pipe_chain`.
+```julia
+julia> f = pipe_chain(@nfix(_ * "is "), @nfix(_ * "a "), @nfix(_ * "sentence."));
+
+julia> f("This ")
+"This is a sentence."
+
+```
 
 ## Constants
 
@@ -108,6 +116,7 @@ The following constants are exported.
 
 | Syntax                                    | Type Constant           |
 |------------------------------------------:|:------------------------|
+| `pipe_chain(f1, f2)`                      | `PipeChain{F1,F2}`      |
 | `and(f1::F1, f1::F2)`/`⩓(f1::F1, f1::F2)` | `And{F1,F2}`            |
 | `or(f1::F1, f1::F2)`/`⩔(f1::F1, f1::F2)`  | `Or{F1,F2}`             |
 | `isapprox(x::T; kwargs::Kwargs)`          | `Approx{T,Kwargs}`      |

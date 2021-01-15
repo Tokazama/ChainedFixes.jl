@@ -27,6 +27,7 @@ export
     Not,
     NotIn,
     NotApprox,
+    PipeChain,
     EndsWith,
     StartsWith,
     # methods
@@ -38,6 +39,7 @@ export
     getkwargs,
     is_fixed_function,
     or,
+    pipe_chain,
     ⩔
 
 if length(methods(isapprox, Tuple{Any})) == 0
@@ -76,27 +78,38 @@ const GreaterThanOrEqual{T} = Fix2{typeof(>=),T}
 
 const LessThanOrEqual{T} = Fix2{typeof(<=),T}
 
-
 """
-    ChainedFix{L,F1,F2}
+    ChainedFix(link, f1, f2)
 
 Internal type for composing functions from [`and`](@ref) and [`or`](@ref). For
-example, `and(x::Function, y::Function)` becomes `ChainedFix(and, x, y)`.
+example, `and(x::Function, y::Function)` becomes `ChainedFix(and, x, y)`. Calling
+`ChainedFix` uses the `link` function to propagate arguments to the linked functions `f1`
+and `f2`.
+
+See also: [`and`](@ref), [`or`](@ref), [`pipe_chain`](@ref)
 """
 struct ChainedFix{L,F1,F2} <: Function
     "the method the \"links\" `f1` and `f2` (i.e. link(f1, f2))"
     link::L
-    "the first position in the `link(f1, f2)` call"
+    "the first position in the `link(x, f1, f2)` call"
     f1::F1
-    "the second position in the `link(f1, f2)` call"
+    "the second position in the `link(x, f1, f2)` call"
     f2::F2
 end
 
-function (cf::ChainedFix{L,F1,F2})(x) where {L,F1<:Function,F2<:Function}
-    return cf.link(cf.f1(x), cf.f2(x))
-end
-(cf::ChainedFix{L,F1,F2})(x) where {L,F1<:Function,F2} = cf.link(cf.f1(x), cf.f2)
-(cf::ChainedFix{L,F1,F2})(x) where {L,F1,F2<:Function} = cf.link(cf.f1, cf.f2(x))
+(cf::ChainedFix)(x) = cf.link(x, cf.f1, cf.f2)
+
+"""
+    pipe_chain(x, y, z...)
+
+Chain together a 
+"""
+pipe_chain(x, y, z...) = pipe_chain(x, pipe_chain(y, z...))
+pipe_chain(x, y) = ChainedFix(pipe_chain, x, y)
+
+(cf::ChainedFix{typeof(pipe_chain)})(x) = x |> cf.f1 |> cf.f2
+
+const PipeChain{F1,F2} = ChainedFix{typeof(pipe_chain),F1,F2}
 
 """
     and(x, y)
@@ -123,6 +136,33 @@ true
 
 ```
 """
+function and end
+
+# 3 - args
+function and(x, y::Function, z::Function)
+    if y(x)
+        return z(x)
+    else
+        return false
+    end
+end
+function and(x, y, z::Function)
+    if y
+        return z(x)
+    else
+        return false
+    end
+end
+function and(x, y::Function, z)
+    if y(x)
+        return z
+    else
+        return false
+    end
+end
+and(x, y, z) = throw(MethodError(and, (x, y, z))) # TODO better error message
+
+# 2 -args
 and(x, y) = x & y
 and(x::Function, y) = ChainedFix(and, x, y)
 and(x, y::Function) = ChainedFix(and, x, y)
@@ -156,6 +196,34 @@ julia> or(<(5) ⩔ >(1), >(2))(3)  # ⩔ == \\Or
 true
 ```
 """
+function or end
+
+# 3 - args
+function or(x, y::Function, z::Function)
+    if y(x)
+        return true
+    else
+        return z(x)
+    end
+end
+function or(x, y, z::Function)
+    if y
+        return true
+    else
+        return z(x)
+    end
+end
+function or(x, y::Function, z)
+    if y(x)
+        return true
+    else
+        return z
+    end
+end
+or(x, y, z) = throw(MethodError(and, (x, y, z))) # TODO better error message
+
+
+# 2 -args
 or(x, y) = x | y
 or(x::Function, y) = ChainedFix(or, x, y)
 or(x, y::Function) = ChainedFix(or, x, y)
@@ -408,9 +476,6 @@ function print_kwargs(io, f::NFix)
         print(io, " = $v, ")
     end
     print(io, "kwargs...")
-end
-
-function _construct_pairs_expr(e::Expr)
 end
 
 macro nfix(f)
