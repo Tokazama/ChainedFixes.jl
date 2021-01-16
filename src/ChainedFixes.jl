@@ -492,6 +492,16 @@ end
 Base.show(io::IO, ::MIME"text/plain", f::ChainedFix) = print_fixed(io, f)
 Base.show(io::IO, f::ChainedFix) = print_fixed(io, f)
 
+function Base.show(io::IO, ::MIME"text/plain", f::PipeChain)
+    print(io, "|> ")
+    print_fixed(io, f)
+end
+function Base.show(io::IO, f::PipeChain)
+    print(io, "|> ")
+    print_fixed(io, f)
+end
+
+
 print_fixed(io::IO, f::Function) = print(io, "$(nameof(f))")
 print_fixed(io::IO, x) = print(io, repr(x))
 function print_fixed(io::IO, f::Fix2)
@@ -503,9 +513,8 @@ function print_fixed(io::IO, f::Fix2)
 end
 
 function print_fixed(io::IO, f::PipeChain)
-    print(io, "|> ")
     print_fixed(io, f.f1)
-    print(io, "|> ")
+    print(io, " |> ")
     print_fixed(io, f.f2)
 end
 
@@ -568,11 +577,11 @@ print_fixed(io::IO, x::LessThanOrEqual) = print(io, "<=($(x.x))")
 print_fixed(io::IO, x::GreaterThanOrEqual) = print(io, ">=($(x.x))")
 print_fixed(io::IO, x::Not) = print(io, "!($(x.x))")
 print_fixed(io::IO, x::In) = print(io, "in($(x.x))")
-print_fixed(io::IO, x::NotIn) = print(io, "!in($(x.x))")
-print_fixed(io::IO, x::EndsWith) = print(io, "endswith($(x.x))")
-print_fixed(io::IO, x::StartsWith) = print(io, "startswith($(x.x))")
-print_fixed(io::IO, x::Approx) = print(io, "≈($(x.x))")
-print_fixed(io::IO, x::NotApprox) = print(io, "!≈($(x.x))")
+print_fixed(io::IO, x::NotIn) = print(io, "!in($(getargs(x)[1]))")
+print_fixed(io::IO, x::EndsWith) = print(io, "endswith($(repr(x.x)))")
+print_fixed(io::IO, x::StartsWith) = print(io, "startswith($(repr(x.x)))")
+print_fixed(io::IO, x::Approx) = print(io, "≈($(getargs(x)[1]))")
+print_fixed(io::IO, x::NotApprox) = print(io, "!≈($(getargs(x)[1]))")
 
 end # module
 

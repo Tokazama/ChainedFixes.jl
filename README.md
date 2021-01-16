@@ -20,7 +20,6 @@ true
 julia> gt_or_lt(6)
 false
 
-
 julia> gt_and_lt = and(>(1), <(5))
 and(>(1), <(5))
 
@@ -40,7 +39,6 @@ true
 
 julia> gt_or_lt(6)
 false
-
 
 julia> gt_and_lt = >(1) ⩓ <(5); # \And<TAB>
 
@@ -105,10 +103,28 @@ We can create a chain a functions that act like an uncalled pipe (e.g., `|>`).
 A chain of fixed functions can be chained together via `pipe_chain`.
 ```julia
 julia> f = pipe_chain(@nfix(_ * "is "), @nfix(_ * "a "), @nfix(_ * "sentence."))
-|> *(_, "is ")|> |> *(_, "a ")|> *(_, "sentence.")
+|> *(_, "is ") |> *(_, "a ") |> *(_, "sentence.")
 
 julia> f("This ")
 "This is a sentence."
+
+julia> f2 = pipe_chain(f, endswith("sentence."))
+|> *(_, "is ") |> *(_, "a ") |> *(_, "sentence.") |> endswith("sentence.")
+
+julia> f2("This ")
+true
+
+julia> f = pipe_chain(and(<=(3), !=(2)), ==(true), in(trues(2)), !in(falses(2)))
+|> and(<=(3), !=(2)) |> ==(true) |> in(Bool[1, 1]) |> !in(Bool[0, 0])
+
+julia> f(1)
+true
+
+julia> f = pipe_chain(isapprox(0.1), !isapprox(0.2))
+|> ≈(0.1) |> !≈(0.2)
+
+julia> f(0.1 - 1e-10)
+true
 
 ```
 
