@@ -9,6 +9,7 @@ using Base: Fix1, Fix2, tail
 using Base.Iterators: Pairs
 
 export
+    @nfix,
     # Types
     ChainedFix,
     NFix,
@@ -26,6 +27,7 @@ export
     Not,
     NotIn,
     NotApprox,
+    PipeChain,
     EndsWith,
     StartsWith,
     # methods
@@ -37,6 +39,7 @@ export
     getkwargs,
     is_fixed_function,
     or,
+    pipe_chain,
     ⩔
 
 if length(methods(isapprox, Tuple{Any})) == 0
@@ -75,27 +78,38 @@ const GreaterThanOrEqual{T} = Fix2{typeof(>=),T}
 
 const LessThanOrEqual{T} = Fix2{typeof(<=),T}
 
-
 """
-    ChainedFix{L,F1,F2}
+    ChainedFix(link, f1, f2)
 
 Internal type for composing functions from [`and`](@ref) and [`or`](@ref). For
-example, `and(x::Function, y::Function)` becomes `ChainedFix(and, x, y)`.
+example, `and(x::Function, y::Function)` becomes `ChainedFix(and, x, y)`. Calling
+`ChainedFix` uses the `link` function to propagate arguments to the linked functions `f1`
+and `f2`.
+
+See also: [`and`](@ref), [`or`](@ref), [`pipe_chain`](@ref)
 """
 struct ChainedFix{L,F1,F2} <: Function
     "the method the \"links\" `f1` and `f2` (i.e. link(f1, f2))"
     link::L
-    "the first position in the `link(f1, f2)` call"
+    "the first position in the `link(x, f1, f2)` call"
     f1::F1
-    "the second position in the `link(f1, f2)` call"
+    "the second position in the `link(x, f1, f2)` call"
     f2::F2
 end
 
-function (cf::ChainedFix{L,F1,F2})(x) where {L,F1<:Function,F2<:Function}
-    return cf.link(cf.f1(x), cf.f2(x))
-end
-(cf::ChainedFix{L,F1,F2})(x) where {L,F1<:Function,F2} = cf.link(cf.f1(x), cf.f2)
-(cf::ChainedFix{L,F1,F2})(x) where {L,F1,F2<:Function} = cf.link(cf.f1, cf.f2(x))
+(cf::ChainedFix)(x) = cf.link(x, cf.f1, cf.f2)
+
+"""
+    pipe_chain(x, y, z...)
+
+Chain together a 
+"""
+pipe_chain(x, y, z...) = pipe_chain(x, pipe_chain(y, z...))
+pipe_chain(x, y) = ChainedFix(pipe_chain, x, y)
+
+(cf::ChainedFix{typeof(pipe_chain)})(x) = x |> cf.f1 |> cf.f2
+
+const PipeChain{F1,F2} = ChainedFix{typeof(pipe_chain),F1,F2}
 
 """
     and(x, y)
@@ -122,6 +136,33 @@ true
 
 ```
 """
+function and end
+
+# 3 - args
+function and(x, y::Function, z::Function)
+    if y(x)
+        return z(x)
+    else
+        return false
+    end
+end
+function and(x, y, z::Function)
+    if y
+        return z(x)
+    else
+        return false
+    end
+end
+function and(x, y::Function, z)
+    if y(x)
+        return z
+    else
+        return false
+    end
+end
+and(x, y, z) = throw(MethodError(and, (x, y, z))) # TODO better error message
+
+# 2 -args
 and(x, y) = x & y
 and(x::Function, y) = ChainedFix(and, x, y)
 and(x, y::Function) = ChainedFix(and, x, y)
@@ -155,6 +196,34 @@ julia> or(<(5) ⩔ >(1), >(2))(3)  # ⩔ == \\Or
 true
 ```
 """
+function or end
+
+# 3 - args
+function or(x, y::Function, z::Function)
+    if y(x)
+        return true
+    else
+        return z(x)
+    end
+end
+function or(x, y, z::Function)
+    if y
+        return true
+    else
+        return z(x)
+    end
+end
+function or(x, y::Function, z)
+    if y(x)
+        return true
+    else
+        return z
+    end
+end
+or(x, y, z) = throw(MethodError(and, (x, y, z))) # TODO better error message
+
+
+# 2 -args
 or(x, y) = x | y
 or(x::Function, y) = ChainedFix(or, x, y)
 or(x, y::Function) = ChainedFix(or, x, y)
@@ -370,6 +439,140 @@ keyword arguments (`kwargs...`).
 end
 
 (f::NFix)(args...; kwargs...) = execute(f, args, kwargs)
+
+macro nfix(f)
+    function_name = f.args[1]
+    narg = length(f.args)
+    argpos = 2
+    if f.args[2] isa Expr && f.args[2].head === :kw
+        pair_names = Expr(:tuple)
+        pair_args = Expr(:tuple)
+        for kw in f.args[argpos:end]
+            push!(pair_names.args, QuoteNode(kw.args[1]))
+            push!(pair_args.args, kw.args[2])
+        end
+        kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
+        args = Expr(:tuple)
+        pos = Expr(:tuple)
+    else
+        if f.args[2] isa Expr && f.args[2].head === :parameters
+            pair_names = Expr(:tuple)
+            pair_args = Expr(:tuple)
+            for kw in f.args[2].args
+                push!(pair_names.args, QuoteNode(kw.args[1]))
+                push!(pair_args.args, kw.args[2])
+            end
+            kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
+            argpos = 3
+        else
+            kwargs = :(Iterators.Pairs(NamedTuple{()}(()),()))
+        end
+        args = Expr(:tuple)
+        pos = Expr(:tuple)
+        if narg > argpos
+            itr = 1
+            for i in argpos:narg
+                if f.args[i] === :_
+                    itr += 1
+                else
+                    push!(pos.args, itr)
+                    push!(args.args, f.args[i])
+                    itr += 1
+                end
+            end
+        end
+    end
+    esc(
+    quote
+        NFix{$pos}($function_name, $args, $kwargs)
+    end
+    )
+end
+
+Base.show(io::IO, ::MIME"text/plain", f::ChainedFix) = print_fixed(io, f)
+Base.show(io::IO, f::ChainedFix) = print_fixed(io, f)
+
+print_fixed(io::IO, f::Function) = print(io, "$(nameof(f))")
+print_fixed(io::IO, x) = print(io, repr(x))
+function print_fixed(io::IO, f::Fix2)
+    print(io, "Fix2(")
+    print_fixed(io, f.f)
+    print(io, ", ")
+    print_fixed(io, f.x)
+    print(io, ")")
+end
+
+function print_fixed(io::IO, f::PipeChain)
+    print(io, "|> ")
+    print_fixed(io, f.f1)
+    print(io, "|> ")
+    print_fixed(io, f.f2)
+end
+
+function print_fixed(io::IO, f::ChainedFix)
+    print_fixed(io, f.link)
+    print(io, "(")
+    print_fixed(io, f.f1)
+    print(io, ", ")
+    print_fixed(io, f.f2)
+    print(io, ")")
+end
+
+function print_fixed(io::IO, f::NFix{P}) where {P}
+    print_fixed(io, getfxn(f))
+
+    print(io, "(")
+    if length(P) !== 0
+        args = getargs(f)
+        n = last(P)
+        current_position = 1
+        i = 1
+        while current_position <= last(P)
+            if current_position === P[i]
+                print_fixed(io, args[i])
+                i += 1
+            else
+                print(io, "_")
+            end
+            if current_position !== last(P)
+                print(io, ", ")
+            end
+            current_position += 1
+        end
+    end
+    if !isempty(f.kwargs)
+        print(io, "; ")
+        kwargs = getkwargs(f)
+        nkwargs = length(kwargs)
+        i = 1
+        for (k, v) in kwargs
+            print(io, "$k = ")
+            print_fixed(io, v)
+            if i !== nkwargs
+                print(io, ", ")
+            end
+            i += 1
+        end
+    end
+    print(io, ")")
+end
+
+Base.show(io::IO, ::MIME"text/plain", f::NFix) = print_fixed(io, f)
+Base.show(io::IO, f::NFix) = print_fixed(io, f)
+
+print_fixed(io::IO, x::Less) = print(io, "<($(x.x))")
+print_fixed(io::IO, x::Greater) = print(io, ">($(x.x))")
+print_fixed(io::IO, x::Equal) = print(io, "==($(x.x))")
+print_fixed(io::IO, x::NotEqual) = print(io, "!=($(x.x))")
+print_fixed(io::IO, x::LessThanOrEqual) = print(io, "<=($(x.x))")
+print_fixed(io::IO, x::GreaterThanOrEqual) = print(io, ">=($(x.x))")
+print_fixed(io::IO, x::Not) = print(io, "!($(x.x))")
+print_fixed(io::IO, x::In) = print(io, "in($(x.x))")
+print_fixed(io::IO, x::NotIn) = print(io, "!in($(x.x))")
+print_fixed(io::IO, x::EndsWith) = print(io, "endswith($(x.x))")
+print_fixed(io::IO, x::StartsWith) = print(io, "startswith($(x.x))")
+print_fixed(io::IO, x::Approx) = print(io, "≈($(x.x))")
+print_fixed(io::IO, x::NotApprox) = print(io, "!≈($(x.x))")
 
 end # module
 
