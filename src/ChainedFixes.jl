@@ -440,44 +440,6 @@ end
 
 (f::NFix)(args...; kwargs...) = execute(f, args, kwargs)
 
-function print_nfix(io::IO, f::NFix{P}) where {P}
-    print(io, "$(nameof(getfxn(f)))")
-    print(io, "(")
-    print_args(io, P, getargs(f))
-    print_kwargs(io, f)
-    print(io, ")")
-end
-
-Base.show(io::IO, ::MIME"text/plain", f::NFix) = print_nfix(io, f)
-
-print_args(io, pos::Tuple{}, args::Tuple{}) = print(io, "args...")
-function print_args(io, pos::Tuple{Vararg{Int}}, args::Tuple)
-    n = last(pos)
-    current_position = 1
-    i = 1
-    while current_position <= last(pos)
-        if current_position === pos[i]
-            print(io, repr(args[i]))
-            print(io, ", ")
-            i += 1
-            current_position += 1
-        else
-            print(io, "_, ")
-            current_position += 1
-        end
-    end
-    print(io, "args...")
-end
-
-function print_kwargs(io, f::NFix)
-    print(io, "; ")
-    for (k,v) in getkwargs(f)
-        print(io, "$k")
-        print(io, " = $v, ")
-    end
-    print(io, "kwargs...")
-end
-
 macro nfix(f)
     function_name = f.args[1]
     narg = length(f.args)
@@ -526,6 +488,91 @@ macro nfix(f)
     end
     )
 end
+
+Base.show(io::IO, ::MIME"text/plain", f::ChainedFix) = print_fixed(io, f)
+Base.show(io::IO, f::ChainedFix) = print_fixed(io, f)
+
+print_fixed(io::IO, f::Function) = print(io, "$(nameof(f))")
+print_fixed(io::IO, x) = print(io, repr(x))
+function print_fixed(io::IO, f::Fix2)
+    print(io, "Fix2(")
+    print_fixed(io, f.f)
+    print(io, ", ")
+    print_fixed(io, f.x)
+    print(io, ")")
+end
+
+function print_fixed(io::IO, f::PipeChain)
+    print(io, "|> ")
+    print_fixed(io, f.f1)
+    print(io, "|> ")
+    print_fixed(io, f.f2)
+end
+
+function print_fixed(io::IO, f::ChainedFix)
+    print_fixed(io, f.link)
+    print(io, "(")
+    print_fixed(io, f.f1)
+    print(io, ", ")
+    print_fixed(io, f.f2)
+    print(io, ")")
+end
+
+function print_fixed(io::IO, f::NFix{P}) where {P}
+    print_fixed(io, getfxn(f))
+
+    print(io, "(")
+    if length(P) !== 0
+        args = getargs(f)
+        n = last(P)
+        current_position = 1
+        i = 1
+        while current_position <= last(P)
+            if current_position === P[i]
+                print_fixed(io, args[i])
+                i += 1
+            else
+                print(io, "_")
+            end
+            if current_position !== last(P)
+                print(io, ", ")
+            end
+            current_position += 1
+        end
+    end
+    if !isempty(f.kwargs)
+        print(io, "; ")
+        kwargs = getkwargs(f)
+        nkwargs = length(kwargs)
+        i = 1
+        for (k, v) in kwargs
+            print(io, "$k = ")
+            print_fixed(io, v)
+            if i !== nkwargs
+                print(io, ", ")
+            end
+            i += 1
+        end
+    end
+    print(io, ")")
+end
+
+Base.show(io::IO, ::MIME"text/plain", f::NFix) = print_fixed(io, f)
+Base.show(io::IO, f::NFix) = print_fixed(io, f)
+
+print_fixed(io::IO, x::Less) = print(io, "<($(x.x))")
+print_fixed(io::IO, x::Greater) = print(io, ">($(x.x))")
+print_fixed(io::IO, x::Equal) = print(io, "==($(x.x))")
+print_fixed(io::IO, x::NotEqual) = print(io, "!=($(x.x))")
+print_fixed(io::IO, x::LessThanOrEqual) = print(io, "<=($(x.x))")
+print_fixed(io::IO, x::GreaterThanOrEqual) = print(io, ">=($(x.x))")
+print_fixed(io::IO, x::Not) = print(io, "!($(x.x))")
+print_fixed(io::IO, x::In) = print(io, "in($(x.x))")
+print_fixed(io::IO, x::NotIn) = print(io, "!in($(x.x))")
+print_fixed(io::IO, x::EndsWith) = print(io, "endswith($(x.x))")
+print_fixed(io::IO, x::StartsWith) = print(io, "startswith($(x.x))")
+print_fixed(io::IO, x::Approx) = print(io, "≈($(x.x))")
+print_fixed(io::IO, x::NotApprox) = print(io, "!≈($(x.x))")
 
 end # module
 

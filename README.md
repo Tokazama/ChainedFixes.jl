@@ -11,7 +11,8 @@ Some simple functionality available form this package is chaining any fixed func
 ```julia
 julia> using ChainedFixes
 
-julia> gt_or_lt = or(>(10), <(5));
+julia> gt_or_lt = or(>(10), <(5))
+or(>(10), <(5))
 
 julia> gt_or_lt(2)
 true
@@ -20,7 +21,8 @@ julia> gt_or_lt(6)
 false
 
 
-julia> gt_and_lt = and(>(1), <(5));
+julia> gt_and_lt = and(>(1), <(5))
+and(>(1), <(5))
 
 julia> gt_and_lt(2)
 true
@@ -62,38 +64,37 @@ julia> fxn2(; x, y, z) = fxn1(x, y, z);
 julia> fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...));
 
 julia> f = @nfix fxn1(1, 2.0, _)
-fxn1(1, 2.0, args...; kwargs...)
+fxn1(1, 2.0)
 
 julia> f("a")
 Val{1}()
 
-
 julia> f = @nfix fxn1(1, _, 2.0)
-fxn1(1, _, 2.0, args...; kwargs...)
+fxn1(1, _, 2.0)
 
 julia> f("a")
 Val{2}()
 
 julia> f = @nfix fxn1(1.0, _, "")
-fxn1(1.0, _, "", args...; kwargs...)
+fxn1(1.0, _, "")
 
 julia> f(2)
 Val{3}()
 
 julia> f = @nfix fxn2(x=1, y=2.0)
-fxn2(args...; x = 1, y = 2.0, kwargs...)
+fxn2(; x = 1, y = 2.0)
 
 julia> f(z = "a")
 Val{1}()
 
 julia> f = @nfix fxn2(x=1, z=2.0)
-fxn2(args...; x = 1, z = 2.0, kwargs...)
+fxn2(; x = 1, z = 2.0)
 
 julia> f(y = "a")
 Val{2}()
 
 julia> f = @nfix fxn3(1, 2.0; x = 1.0, z= "")
-fxn3(1, 2.0, args...; x = 1.0, z = , kwargs...)
+fxn3(1, 2.0; x = 1.0, z = "")
 
 julia> f(""; y = 1)
 (Val{1}(), Val{3}())
@@ -103,7 +104,8 @@ julia> f(""; y = 1)
 We can create a chain a functions that act like an uncalled pipe (e.g., `|>`).
 A chain of fixed functions can be chained together via `pipe_chain`.
 ```julia
-julia> f = pipe_chain(@nfix(_ * "is "), @nfix(_ * "a "), @nfix(_ * "sentence."));
+julia> f = pipe_chain(@nfix(_ * "is "), @nfix(_ * "a "), @nfix(_ * "sentence."))
+|> *(_, "is ")|> |> *(_, "a ")|> *(_, "sentence.")
 
 julia> f("This ")
 "This is a sentence."
