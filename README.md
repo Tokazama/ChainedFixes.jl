@@ -114,6 +114,12 @@ julia> f2 = pipe_chain(f, endswith("sentence."))
 julia> f2("This ")
 true
 
+julia> f2 = pipe_chain(f, startswith("This"))
+|> *(_, "is ") |> *(_, "a ") |> *(_, "sentence.") |> startswith("This")
+
+julia> f2("This ")
+true
+
 julia> f = pipe_chain(and(<=(3), !=(2)), ==(true), in(trues(2)), !in(falses(2)))
 |> and(<=(3), !=(2)) |> ==(true) |> in(Bool[1, 1]) |> !in(Bool[0, 0])
 
