@@ -368,7 +368,7 @@ getargs(x::Fix2) = (getfield(x, :x),)
 getargs(x::Fix1) = (getfield(x, :x),)
 getargs(x::Approx) = (getfield(x, :y),)
 getargs(x::NFix) = getfield(x, :args)
-getargs(x::Not) = getargs(getfield(x, :f))
+getargs(x::Not) = (getfield(x, :f),)
 getargs(x::ChainedFix) = (getfield(x, :f1), getfield(x, :f2))
 
 """
@@ -405,8 +405,6 @@ getfxn(x::Fix1) = getfield(x, :f)
 getfxn(x::Fix2) = getfield(x, :f)
 getfxn(x::Approx) = isapprox
 getfxn(x::Not) = !
-getfxn(x::NotIn) = !in
-getfxn(x::NotApprox) = !isapprox
 
 """
     positions(f) -> Tuple{Vararg{Int}}
@@ -501,16 +499,8 @@ function Base.show(io::IO, f::PipeChain)
     print_fixed(io, f)
 end
 
-
 print_fixed(io::IO, f::Function) = print(io, "$(nameof(f))")
 print_fixed(io::IO, x) = print(io, repr(x))
-function print_fixed(io::IO, f::Fix2)
-    print(io, "Fix2(")
-    print_fixed(io, f.f)
-    print(io, ", ")
-    print_fixed(io, f.x)
-    print(io, ")")
-end
 
 function print_fixed(io::IO, f::PipeChain)
     print_fixed(io, f.f1)
@@ -529,7 +519,6 @@ end
 
 function print_fixed(io::IO, f::NFix{P}) where {P}
     print_fixed(io, getfxn(f))
-
     print(io, "(")
     if length(P) !== 0
         args = getargs(f)
@@ -569,19 +558,60 @@ end
 Base.show(io::IO, ::MIME"text/plain", f::NFix) = print_fixed(io, f)
 Base.show(io::IO, f::NFix) = print_fixed(io, f)
 
-print_fixed(io::IO, x::Less) = print(io, "<($(x.x))")
-print_fixed(io::IO, x::Greater) = print(io, ">($(x.x))")
-print_fixed(io::IO, x::Equal) = print(io, "==($(x.x))")
-print_fixed(io::IO, x::NotEqual) = print(io, "!=($(x.x))")
-print_fixed(io::IO, x::LessThanOrEqual) = print(io, "<=($(x.x))")
-print_fixed(io::IO, x::GreaterThanOrEqual) = print(io, ">=($(x.x))")
-print_fixed(io::IO, x::Not) = print(io, "!($(x.x))")
-print_fixed(io::IO, x::In) = print(io, "in($(x.x))")
-print_fixed(io::IO, x::NotIn) = print(io, "!in($(getargs(x)[1]))")
-print_fixed(io::IO, x::EndsWith) = print(io, "endswith($(repr(x.x)))")
-print_fixed(io::IO, x::StartsWith) = print(io, "startswith($(repr(x.x)))")
-print_fixed(io::IO, x::Approx) = print(io, "≈($(getargs(x)[1]))")
-print_fixed(io::IO, x::NotApprox) = print(io, "!≈($(getargs(x)[1]))")
+function print_fixed(io::IO, x::Not)
+    print(io, "!")
+    print_fixed(io, getargs(x)[1])
+end
+function print_fixed(io::IO, x::Greater)
+    print(io, ">(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::Less)
+    print(io, "<(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::Equal)
+    print(io, "==(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::NotEqual)
+    print(io, "!=(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::LessThanOrEqual)
+    print(io, "<=(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::GreaterThanOrEqual)
+    print(io, ">=(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::In)
+    print(io, "in(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::EndsWith)
+    print(io, "endswith(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::StartsWith)
+    print(io, "startswith(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+function print_fixed(io::IO, x::Approx)
+    print(io, "≈(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 end # module
 

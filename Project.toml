@@ -1,7 +1,7 @@
 name = "ChainedFixes"
 uuid = "9706b775-b1f4-4c74-b677-0491368ea71c"
 authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [compat]
 julia = "1"

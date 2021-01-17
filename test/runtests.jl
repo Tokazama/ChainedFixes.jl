@@ -51,8 +51,8 @@ end
     @test !isa(!(==(1)), In)
 
     @test @inferred(is_fixed_function(typeof(notinfxn)))
-    @test @inferred(getfxn(notinfxn)) == !in
-    @test @inferred(getargs(notinfxn)) == (1,)
+    @test @inferred(getfxn(notinfxn)) == !
+    @test @inferred(getargs(notinfxn)) == (in(1),)
     @test @inferred(getkwargs(notinfxn)) == empty_pairs
 end
 
@@ -73,9 +73,8 @@ end
     @test !isa(!(==(1)), NotApprox)
 
     @test @inferred(is_fixed_function(typeof(notisapprox_fxn)))
-    @test @inferred(getfxn(notisapprox_fxn)) == !isapprox
-    @test @inferred(getargs(notisapprox_fxn)) == (1,)
-    @test @inferred(getkwargs(notisapprox_fxn)) == Pairs((atol=2,),(:atol,))
+    @test @inferred(getfxn(notisapprox_fxn)) == !
+    @test @inferred(getargs(notisapprox_fxn)) == (isapprox(1; atol=2),)
 end
 
 @testset "Less" begin
