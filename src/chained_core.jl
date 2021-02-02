@@ -560,7 +560,6 @@ julia> ChainedFixes.getargs(==(1))
 
 ```
 """
-getargs(x) = (x,)
 getargs(x::Fix2) = (getfield(x, :x),)
 getargs(x::Fix1) = (getfield(x, :x),)
 getargs(x::Approx) = (getfield(x, :y),)

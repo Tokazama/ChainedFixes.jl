@@ -6,7 +6,6 @@ makedocs(;
     pages=[
         "ChainedFixes" => "index.md",
     ],
-    repo="https://github.com/Tokazma/ChainedFixes.jl/blob/{commit}{path}#L{line}",
     sitename="ChainedFixes.jl",
     authors="Zachary P. Christensen",
 )
