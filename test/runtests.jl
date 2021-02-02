@@ -1,5 +1,6 @@
 using Test
 using ChainedFixes
+using ChainedFixes: positions, getargs, getkwargs, getfxn, is_fixed_function
 using Documenter
 using Base.Iterators: Pairs
 using Base: Fix1
@@ -170,56 +171,39 @@ fxn1(x::AbstractString, y::AbstractFloat, z::Integer) = Val(6)
 fxn2(; x, y, z) = fxn1(x, y, z)
 fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...))
 
-fix1 = NFix{(1,2)}(fxn1, 1, 2.0)
-@test @inferred(fix1("a")) === Val(1)
+f = @nfix fxn1(1, 2.0, _)
+@test @inferred(f("a")) == Val{1}()
 
-fix2 = NFix{(1,3)}(fxn1, 1, 2.0)
-@test @inferred(fix2("a")) === Val(2)
+f = @nfix fxn1(1, _, 2.0)
+@test @inferred(f("a")) == Val{2}()
 
-fix3 = NFix{(1,3)}(fxn1, 1.0, "")
-@test @inferred(fix3(2)) === Val(3)
+f = @nfix fxn1(1.0, _, "")
+@test @inferred(f(2)) == Val{3}()
 
-fix4 = NFix{(1,2)}(fxn1, 1.0, "")
-@test @inferred(fix4(2)) === Val(4)
+f = @nfix fxn2(x=1, y=2.0)
+@test @inferred(f(z = "a")) == Val{1}()
 
-fix5 = NFix{(2,3)}(fxn1, 1, 1.0)
-@test @inferred(fix5("")) === Val(5)
+f = @nfix fxn2(x=1, z=2.0)
+@test @inferred(f(y = "a")) == Val{2}()
 
-fix6 = NFix{(1,2,3)}(fxn1, "", 1.0, 1)
-@test @inferred(fix6()) === Val(6)
+f = @nfix fxn3(1, 2.0, _; x = 1.0, z= "")
+@test @inferred(f(""; y = 1)) == (Val{1}(), Val{3}())
 
-### kwargs
-fix7 = NFix(fxn2, x=1, y=2.0)
-@test @inferred(fix7(z = "a")) === Val(1)
 
-fix8 = NFix(fxn2, x=1, z=2.0)
-@test @inferred(fix8(y="a")) === Val(2)
+f = pipe_chain(@nfix(_ * "is "), @nfix(_ * "a "), @nfix(_ * "sentence."))
+@test f("This ") == "This is a sentence."
 
-fix9 = NFix(fxn2, x=1.0, z="")
-@test @inferred(fix9(y=2)) === Val(3)
+f2 = pipe_chain(f, endswith("sentence."))
+@test f2("This ")
 
-fix10 = NFix(fxn2, x=1.0, y="")
-@test @inferred(fix10(z=2)) === Val(4)
+f2 = pipe_chain(f, startswith("This"))
+@test f2("This ")
 
-fix11 = NFix(fxn2, y=1, z=1.0)
-@test @inferred(fix11(x="")) === Val(5)
+f = pipe_chain(and(<=(3), !=(2)), ==(true), in(trues(2)), !in(falses(2)))
+@test f(1)
 
-fix12 = NFix(fxn2, x="", y=1.0, z=1)
-@test @inferred(fix12()) === Val(6)
-
-fix13 = NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")
-@test @inferred(fix13(""; y = 1)) === (Val{1}(), Val{3}())
-
-# positions must be NTuple{N,Int}
-@test_throws ErrorException NFix{(1.0,2,3)}(fxn1, "", 1.0, 1)
-# positions aren't sorted
-@test_throws ErrorException NFix{(1,3,2)}(fxn1, "", 1.0, 1)
-# position and args aren't same length
-@test_throws ErrorException NFix{(1,3,2)}(fxn1, "", 1.0)
-
-@test is_fixed_function(fix1)
-
-@test @inferred(ChainedFixes.execute(+, 1, 2)) == 3
+f = pipe_chain(isapprox(0.1), !isapprox(0.2))
+@test f(0.1 - 1e-10)
 
 @testset "docs" begin
     doctest(ChainedFixes)

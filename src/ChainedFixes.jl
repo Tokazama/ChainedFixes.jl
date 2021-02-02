@@ -12,7 +12,6 @@ export
     @nfix,
     # Types
     ChainedFix,
-    NFix,
     # Constants
     And, 
     Approx,
@@ -33,50 +32,98 @@ export
     # methods
     and,
     ⩓,
-    execute,
-    getargs,
-    getfxn,
-    getkwargs,
-    is_fixed_function,
     or,
     pipe_chain,
     ⩔
+
+const EmptyPairs = Pairs{Union{}, Union{}, Tuple{}, NamedTuple{(), Tuple{}}}
 
 if length(methods(isapprox, Tuple{Any})) == 0
     Base.isapprox(y; kwargs...) = x -> isapprox(x, y; kwargs...)
 end
 const Approx{Kwargs,T} = typeof(isapprox(Any)).name.wrapper{Kwargs,T}
+print_fixed(io::IO, x::Approx) = print(io, "≈($(first(getargs(x))))")
 
 if length(methods(startswith, Tuple{Any})) == 0
     Base.startswith(s) = Base.Fix2(startswith, s)
 end
 const StartsWith{T} = Fix2{typeof(startswith),T}
+function print_fixed(io::IO, x::StartsWith)
+    print(io, "startswith(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 if length(methods(endswith, Tuple{Any})) == 0
     Base.endswith(s) = Base.Fix2(endswith, s)
 end
 
 const EndsWith{T} = Fix2{typeof(endswith),T}
+function print_fixed(io::IO, x::EndsWith)
+    print(io, "endswith(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 const Not{T} = (typeof(!(sum)).name.wrapper){T}
+function print_fixed(io::IO, x::Not)
+    print(io, "!")
+    print_fixed(io, getargs(x)[1])
+end
 
 const In{T} = Fix2{typeof(in),T}
+function print_fixed(io::IO, x::In)
+    print(io, "in(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 const NotIn{T} = (typeof(!in(Any)).name.wrapper){Fix2{typeof(in),T}}
 
 const NotApprox{T,Kwargs} = (typeof(!in(Any)).name.wrapper){Approx{T,Kwargs}}
 
 const Less{T} = Union{Fix2{typeof(<),T},Fix2{typeof(isless),T}}
+function print_fixed(io::IO, x::Less)
+    print(io, "<(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 const Equal{T} = Union{Fix2{typeof(==),T},Fix2{typeof(isequal),T}}
+function print_fixed(io::IO, x::Equal)
+    print(io, "==(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 const NotEqual{T} = Fix2{typeof(!=),T}
+function print_fixed(io::IO, x::NotEqual)
+    print(io, "!=(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 const Greater{T} = Fix2{typeof(>),T}
+function print_fixed(io::IO, x::Greater)
+    print(io, ">(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 const GreaterThanOrEqual{T} = Fix2{typeof(>=),T}
+function print_fixed(io::IO, x::GreaterThanOrEqual)
+    print(io, ">=(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
 
 const LessThanOrEqual{T} = Fix2{typeof(<=),T}
+function print_fixed(io::IO, x::LessThanOrEqual)
+    print(io, "<=(")
+    print_fixed(io, first(getargs(x)))
+    print(io, ")")
+end
+
 
 """
     ChainedFix(link, f1, f2)
@@ -99,6 +146,15 @@ end
 
 (cf::ChainedFix)(x) = cf.link(x, cf.f1, cf.f2)
 
+function print_fixed(io::IO, f::ChainedFix)
+    print_fixed(io, f.link)
+    print(io, "(")
+    print_fixed(io, f.f1)
+    print(io, ", ")
+    print_fixed(io, f.f2)
+    print(io, ")")
+end
+
 """
     pipe_chain(x, y, z...)
 
@@ -110,6 +166,11 @@ pipe_chain(x, y) = ChainedFix(pipe_chain, x, y)
 (cf::ChainedFix{typeof(pipe_chain)})(x) = x |> cf.f1 |> cf.f2
 
 const PipeChain{F1,F2} = ChainedFix{typeof(pipe_chain),F1,F2}
+function print_fixed(io::IO, f::PipeChain)
+    print_fixed(io, f.f1)
+    print(io, " |> ")
+    print_fixed(io, f.f2)
+end
 
 """
     and(x, y)
@@ -240,6 +301,18 @@ const And{F1,F2} = ChainedFix{typeof(and),F1,F2}
 
 const Or{F1,F2} = ChainedFix{typeof(or),F1,F2}
 
+struct ArgPosition{N}
+    ArgPosition{N}() where {N} = new{N::Int}()
+    ArgPosition(n::Int) = new{n}()
+end
+
+print_fixed(io::IO, x::ArgPosition{N}) where {N} = print(io, "_$N")
+
+struct ArgsTrailing end
+print_fixed(io::IO, x::ArgsTrailing) = print(io, "_...")
+
+
+#=
 """
     NFix{P}(f::Function, args::Tuple, kwargs::Pairs)
 
@@ -279,40 +352,11 @@ julia> NFix{(1,2)}(fxn3, 1, 2.0; x=1.0, z="")(""; y = 1)
 ```
 
 """
-struct NFix{Positions,F<:Function,Args<:Tuple,Kwargs<:Pairs} <: Function
+=#
+struct NFix{F,Args<:Tuple,Kwargs<:Pairs} <: Function
     f::F
     args::Args
     kwargs::Kwargs
-
-    function NFix{P,F,Args,Kwargs}(
-        f::F,
-        args::Args,
-        kwargs::Kwargs
-    ) where {P,F,Args<:Tuple,Kwargs<:Pairs}
-
-        if !isa(P, Tuple{Vararg{Int}})
-            error("Positions must be a tuple of Int")
-        elseif length(P) != length(args)
-            error("Number of fixed positions and fixed arguments must be equal," *
-                  " received $(length(P)) positions and $(length(args)) positional arguments.")
-        elseif !issorted(P)
-            error("Positions must be sorted, got $P.")
-        else
-            return new{P,F,Args,Kwargs}(f, args, kwargs)
-        end
-    end
-
-    function NFix{P}(f::F, args::Args, kwargs::Kwargs) where {P,F,Args<:Tuple,Kwargs<:Pairs}
-        return NFix{P,F,Args,Kwargs}(f, args, kwargs)
-    end
-
-    NFix{P}(f, args...; kwargs...) where {P} = NFix{P}(f, args, kwargs)
-
-    function NFix(f, args::NTuple{N,Any}, kwargs::Pairs) where {N}
-        return NFix{ntuple(i -> i, Val(N))}(f, args, kwargs)
-    end
-
-    NFix(f, args...; kwargs...) = NFix(f, args, kwargs)
 end
 
 makeargs(p::Tuple{}, argsnew::Tuple{}, args::Tuple{}, cnt::Int) = ()
@@ -338,7 +382,7 @@ A "fixed" function can only be called on one argument (e.g., `f(arg)`) and all o
 arguments are already assigned. Functions that return true should also have `getargs`
 defined.
 """
-is_fixed_function(::T) where {T} = is_fixed_function(T)
+is_fixed_function(x) = is_fixed_function(typeof(x))
 is_fixed_function(::Type{T}) where {T} = false
 is_fixed_function(::Type{<:Fix2}) = true
 is_fixed_function(::Type{<:Fix1}) = true
@@ -346,7 +390,6 @@ is_fixed_function(::Type{<:Approx}) = true
 is_fixed_function(::Type{<:ChainedFix}) = true
 is_fixed_function(::Type{<:NFix}) = true
 is_fixed_function(::Type{<:Not}) = true
-
 
 """
     getargs(f) -> Tuple
@@ -358,7 +401,7 @@ Return a tuple of fixed positional arguments of the fixed function `f`.
 ```jldoctest
 julia> using ChainedFixes
 
-julia> getargs(==(1))
+julia> ChainedFixes.getargs(==(1))
 (1,)
 
 ```
@@ -381,7 +424,7 @@ Return the fixed keyword arguments of the fixed function `f`.
 ```jldoctest
 julia> using ChainedFixes
 
-julia> getkwargs(isapprox(1, atol=2))
+julia> ChainedFixes.getkwargs(isapprox(1, atol=2))
 pairs(::NamedTuple) with 1 entry:
   :atol => 2
 
@@ -418,73 +461,58 @@ positions(x::NFix{P}) where {P} = P
 positions(x::Not) = positions(getkwargs(getfield(x, :f)))
 positions(x::ChainedFix) = (1, 2)
 
-"""
-    execute(f, args...; kwargs...) -> f(args...; kwargs...)
-
-Executes function `f` with provided positional arugments (`args...`) and
-keyword arguments (`kwargs...`).
-"""
-@inline execute(f, args...; kwargs...) = execute(f, args, kwargs)
-@inline function execute(f, args::Tuple, kwargs::Pairs)
-    if is_fixed_function(f)
-        return getfxn(f)(
-            makeargs(positions(f), args, getargs(f), 1)...;
-            getkwargs(f)..., kwargs...
-        )
-    else
-        return f(args...; kwargs...)
+# (max_underscore, has_trailing_underscore)
+Base.@pure function underscore_info(::Type{A})::Tuple{Int,Bool} where {A}
+    has_trailing_underscore = false
+    max_underscore = 0
+    for p in A.parameters
+        if p <: ArgPosition
+            n = p.parameters[1]
+            if n > max_underscore
+                max_underscore = n
+            end
+        elseif p <: ArgsTrailing
+            has_trailing_underscore = true
+        else
+            nothing
+        end
     end
+    return (max_underscore, has_trailing_underscore)
 end
 
-(f::NFix)(args...; kwargs...) = execute(f, args, kwargs)
+@generated function _swap_underscores(
+    fixed::F,
+    args::A
+)  where {Nf,Na,F<:Tuple{Vararg{Any,Nf}},A<:Tuple{Vararg{Any,Na}}}
 
-macro nfix(f)
-    function_name = f.args[1]
-    narg = length(f.args)
-    argpos = 2
-    if f.args[2] isa Expr && f.args[2].head === :kw
-        pair_names = Expr(:tuple)
-        pair_args = Expr(:tuple)
-        for kw in f.args[argpos:end]
-            push!(pair_names.args, QuoteNode(kw.args[1]))
-            push!(pair_args.args, kw.args[2])
+    max_underscore, has_trailing_underscore = underscore_info(F)
+    if max_underscore === Na
+        has_trailing_underscore = false  # don't need to account for this now
+    elseif !has_trailing_underscore || max_underscore < Na
+        str = "Expected $max_underscore positional arguments but received $Na"
+        return :($str)
+    end
+
+    out = Expr(:tuple)
+    cnt = 1
+    for p in F.parameters
+        if p <: ArgPosition
+            push!(out.args, :(getfield(args, $(p.parameters[1]))))
+        elseif !(p <: ArgsTrailing)
+            push!(out.args, :(getfield(fixed, $cnt)))
         end
-        kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
-        args = Expr(:tuple)
-        pos = Expr(:tuple)
-    else
-        if f.args[2] isa Expr && f.args[2].head === :parameters
-            pair_names = Expr(:tuple)
-            pair_args = Expr(:tuple)
-            for kw in f.args[2].args
-                push!(pair_names.args, QuoteNode(kw.args[1]))
-                push!(pair_args.args, kw.args[2])
-            end
-            kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
-            argpos = 3
-        else
-            kwargs = :(Iterators.Pairs(NamedTuple{()}(()),()))
-        end
-        args = Expr(:tuple)
-        pos = Expr(:tuple)
-        if narg > argpos
-            itr = 1
-            for i in argpos:narg
-                if f.args[i] === :_
-                    itr += 1
-                else
-                    push!(pos.args, itr)
-                    push!(args.args, f.args[i])
-                    itr += 1
-                end
-            end
+        cnt += 1
+    end
+    if has_trailing_underscore
+        for i in (max_underscore + 1):Na
+            push!(out.args, :(getfield(args, $i)))
         end
     end
-    esc(
-    quote
-        NFix{$pos}($function_name, $args, $kwargs)
-    end
-    )
+    return out
+end
+
+@inline function (f::NFix)(args...; kwargs...)
+    return f.f(_swap_underscores(f.args, args)...; f.kwargs..., kwargs...)
 end
 
 Base.show(io::IO, ::MIME"text/plain", f::ChainedFix) = print_fixed(io, f)
@@ -502,40 +530,17 @@ end
 print_fixed(io::IO, f::Function) = print(io, "$(nameof(f))")
 print_fixed(io::IO, x) = print(io, repr(x))
 
-function print_fixed(io::IO, f::PipeChain)
-    print_fixed(io, f.f1)
-    print(io, " |> ")
-    print_fixed(io, f.f2)
-end
-
-function print_fixed(io::IO, f::ChainedFix)
-    print_fixed(io, f.link)
-    print(io, "(")
-    print_fixed(io, f.f1)
-    print(io, ", ")
-    print_fixed(io, f.f2)
-    print(io, ")")
-end
-
-function print_fixed(io::IO, f::NFix{P}) where {P}
+function print_fixed(io::IO, f::NFix) where {P}
     print_fixed(io, getfxn(f))
     print(io, "(")
-    if length(P) !== 0
-        args = getargs(f)
-        n = last(P)
-        current_position = 1
-        i = 1
-        while current_position <= last(P)
-            if current_position === P[i]
-                print_fixed(io, args[i])
-                i += 1
-            else
-                print(io, "_")
-            end
-            if current_position !== last(P)
-                print(io, ", ")
-            end
-            current_position += 1
+    cnt = 1
+    args = getargs(f)
+    nargs = length(args)
+    for arg_i in args
+        print_fixed(io, arg_i)
+        if cnt !== nargs
+            cnt += 1
+            print(io, ", ")
         end
     end
     if !isempty(f.kwargs)
@@ -558,59 +563,81 @@ end
 Base.show(io::IO, ::MIME"text/plain", f::NFix) = print_fixed(io, f)
 Base.show(io::IO, f::NFix) = print_fixed(io, f)
 
-function print_fixed(io::IO, x::Not)
-    print(io, "!")
-    print_fixed(io, getargs(x)[1])
-end
-function print_fixed(io::IO, x::Greater)
-    print(io, ">(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::Less)
-    print(io, "<(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::Equal)
-    print(io, "==(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::NotEqual)
-    print(io, "!=(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::LessThanOrEqual)
-    print(io, "<=(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::GreaterThanOrEqual)
-    print(io, ">=(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::In)
-    print(io, "in(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::EndsWith)
-    print(io, "endswith(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::StartsWith)
-    print(io, "startswith(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
-end
-function print_fixed(io::IO, x::Approx)
-    print(io, "≈(")
-    print_fixed(io, first(getargs(x)))
-    print(io, ")")
+"""
+    @nfix fxn(args...; kwargs...)
+
+Integers following an underscore (`_1`, `_2`) describe the corresponding position of arguments passed to the fixed method.
+A trailing underscore (`_...`) indicates that all arguments passed that don't correspond to a fixed underscore position can be used as varargs.
+"""
+macro nfix(f)
+    function_name = f.args[1]
+    narg = length(f.args)
+    argpos = 2
+    if f.args[2] isa Expr && f.args[2].head === :kw
+        # we only have kwargs
+        pair_names = Expr(:tuple)
+        pair_args = Expr(:tuple)
+        for kw in f.args[argpos:end]
+            push!(pair_names.args, QuoteNode(kw.args[1]))
+            push!(pair_args.args, kw.args[2])
+        end
+        kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
+        args = Expr(:tuple)
+        pos = Expr(:tuple)
+    else
+        if f.args[2] isa Expr && f.args[2].head === :parameters
+            # we also have kwargs
+            pair_names = Expr(:tuple)
+            pair_args = Expr(:tuple)
+            for kw in f.args[2].args
+                push!(pair_names.args, QuoteNode(kw.args[1]))
+                push!(pair_args.args, kw.args[2])
+            end
+            kwargs = :(Iterators.Pairs(NamedTuple{$pair_names}($pair_args), $pair_names))
+            argpos = 3
+        else  # no kwargs
+            kwargs = :(Iterators.Pairs(NamedTuple{()}(()),()))
+        end
+        args = Expr(:tuple)
+        pos = Expr(:tuple)
+        n = 1
+        underscore_positions = Int[]
+        if narg > argpos
+            for i in argpos:narg
+                arg_i = f.args[i]
+                if arg_i == :(_...)
+                    if i == narg
+                        push!(args.args, :(ChainedFixes.ArgsTrailing()))
+                    else
+                        error("trailing arguments must be the last positional arguments")
+                    end
+                elseif arg_i isa Symbol && first(string(arg_i)) == '_'
+                    xsplit = split(string(arg_i), "_")
+                    if length(xsplit) === 2
+                        if xsplit[2] == ""
+                            position_i = n
+                        else
+                            position_i = parse(Int, xsplit[2])
+                        end
+                        push!(underscore_positions, position_i)
+                        push!(args.args, :(ChainedFixes.ArgPosition{$position_i}()))
+                        n += 1
+                    else
+                        # there were multiple underscores in `x` so it isn't underscore followed by Int
+                        push!(args.args, f.args[i])
+                    end
+                else
+                    push!(args.args, f.args[i])
+                end
+            end
+        end
+        cnt = 1
+        for p_i in sort(unique(underscore_positions))
+            cnt === p_i || error("expected underscore suffixed with $cnt")
+            cnt += 1
+        end
+    end
+    esc(:(ChainedFixes.NFix($function_name, $args, $kwargs)))
 end
 
 end # module

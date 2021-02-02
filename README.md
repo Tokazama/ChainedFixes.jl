@@ -62,19 +62,19 @@ julia> fxn2(; x, y, z) = fxn1(x, y, z);
 julia> fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...));
 
 julia> f = @nfix fxn1(1, 2.0, _)
-fxn1(1, 2.0)
+fxn1(1, 2.0, _1)
 
 julia> f("a")
 Val{1}()
 
 julia> f = @nfix fxn1(1, _, 2.0)
-fxn1(1, _, 2.0)
+fxn1(1, _1, 2.0)
 
 julia> f("a")
 Val{2}()
 
 julia> f = @nfix fxn1(1.0, _, "")
-fxn1(1.0, _, "")
+fxn1(1.0, _1, "")
 
 julia> f(2)
 Val{3}()
@@ -91,8 +91,8 @@ fxn2(; x = 1, z = 2.0)
 julia> f(y = "a")
 Val{2}()
 
-julia> f = @nfix fxn3(1, 2.0; x = 1.0, z= "")
-fxn3(1, 2.0; x = 1.0, z = "")
+julia> f = @nfix fxn3(1, 2.0, _; x = 1.0, z= "")
+fxn3(1, 2.0, _1; x = 1.0, z = "")
 
 julia> f(""; y = 1)
 (Val{1}(), Val{3}())
@@ -103,19 +103,19 @@ We can create a chain a functions that act like an uncalled pipe (e.g., `|>`).
 A chain of fixed functions can be chained together via `pipe_chain`.
 ```julia
 julia> f = pipe_chain(@nfix(_ * "is "), @nfix(_ * "a "), @nfix(_ * "sentence."))
-|> *(_, "is ") |> *(_, "a ") |> *(_, "sentence.")
+|> *(_1, "is ") |> *(_1, "a ") |> *(_1, "sentence.")
 
 julia> f("This ")
 "This is a sentence."
 
 julia> f2 = pipe_chain(f, endswith("sentence."))
-|> *(_, "is ") |> *(_, "a ") |> *(_, "sentence.") |> endswith("sentence.")
+|> *(_1, "is ") |> *(_1, "a ") |> *(_1, "sentence.") |> endswith("sentence.")
 
 julia> f2("This ")
 true
 
 julia> f2 = pipe_chain(f, startswith("This"))
-|> *(_, "is ") |> *(_, "a ") |> *(_, "sentence.") |> startswith("This")
+|> *(_1, "is ") |> *(_1, "a ") |> *(_1, "sentence.") |> startswith("This")
 
 julia> f2("This ")
 true
