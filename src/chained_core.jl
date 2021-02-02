@@ -513,19 +513,12 @@ function print_fixed(io::IO, f::NFix) where {P}
     print(io, ")")
 end
 Base.show(io::IO, ::MIME"text/plain", f::ChainedFix) = print_fixed(io, f)
-Base.show(io::IO, f::ChainedFix) = print_fixed(io, f)
 
 function Base.show(io::IO, ::MIME"text/plain", f::PipeChain)
     print(io, "|> ")
     print_fixed(io, f)
 end
-function Base.show(io::IO, f::PipeChain)
-    print(io, "|> ")
-    print_fixed(io, f)
-end
-
 Base.show(io::IO, ::MIME"text/plain", f::NFix) = print_fixed(io, f)
-Base.show(io::IO, f::NFix) = print_fixed(io, f)
 
 """
     is_fixed_function(f) -> Bool
