@@ -165,6 +165,8 @@ end
     @test_throws MethodError or(true, true, true)
 end
 
+@test ChainedFixes.ArgPosition(1) === ChainedFixes.ArgPosition{1}()
+
 fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1)
 fxn1(x::Integer, y::AbstractString, z::AbstractFloat) = Val(2)
 fxn1(x::AbstractFloat, y::Integer, z::AbstractString) = Val(3)
@@ -176,6 +178,7 @@ fxn3(args...; kwargs...) = (fxn1(args...), fxn2(; kwargs...))
 
 f = @nfix fxn1(1, 2.0, _)
 @test @inferred(f("a")) == Val{1}()
+@test @inferred(is_fixed_function(typeof(f)))
 
 f = @nfix fxn1(1, _, 2.0)
 @test @inferred(f("a")) == Val{2}()
