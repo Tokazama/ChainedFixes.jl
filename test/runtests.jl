@@ -1,14 +1,10 @@
 using Test
 using ChainedFixes
-using ChainedFixes: positions, getargs, getkwargs, getfxn, is_fixed_function
+using ChainedFixes.ChainedCore
 using Documenter
-using Base.Iterators: Pairs
 using Base: Fix1
 
-empty_pairs = Pairs((), NamedTuple{(),Tuple{}}(()))
-
-@test @inferred(ChainedFixes.positions(1)) == ()
-@test @inferred(ChainedFixes.positions(<(1))) == (2,)
+empty_named_tuple = NamedTuple{(),Tuple{}}(())
 
 @test @inferred(getfxn(1)) == identity
 @test @inferred(getfxn(+)) == +
@@ -20,8 +16,7 @@ empty_pairs = Pairs((), NamedTuple{(),Tuple{}}(()))
     @test is_fixed_function(typeof(fix1_fxn))
     @test @inferred(getargs(fix1_fxn)) == (1,)
     @test @inferred(getfxn(fix1_fxn)) == <
-    @test @inferred(getkwargs(fix1_fxn)) == empty_pairs
-    @test @inferred(ChainedFixes.positions(fix1_fxn)) == (1,)
+    @test @inferred(getkwargs(fix1_fxn)) == empty_named_tuple
 end
 
 @testset "Not" begin
@@ -31,8 +26,7 @@ end
     @test @inferred(is_fixed_function(typeof(notfxn)))
     @test @inferred(getfxn(notfxn)) == !
     @test @inferred(getargs(notfxn)) == (+,)
-    @test @inferred(getkwargs(notfxn)) == empty_pairs
-    @test @inferred(ChainedFixes.positions(notfxn)) == ()
+    @test @inferred(getkwargs(notfxn)) == empty_named_tuple
 end
 
 @testset "In" begin
@@ -43,7 +37,7 @@ end
     @test @inferred(is_fixed_function(typeof(infxn)))
     @test @inferred(getfxn(infxn)) == in
     @test @inferred(getargs(infxn)) == (1,)
-    @test @inferred(getkwargs(infxn)) == empty_pairs
+    @test @inferred(getkwargs(infxn)) == empty_named_tuple
 end
 
 @testset "NotIn" begin
@@ -54,7 +48,7 @@ end
     @test @inferred(is_fixed_function(typeof(notinfxn)))
     @test @inferred(getfxn(notinfxn)) == !
     @test @inferred(getargs(notinfxn)) == (in(1),)
-    @test @inferred(getkwargs(notinfxn)) == empty_pairs
+    @test @inferred(getkwargs(notinfxn)) == empty_named_tuple
 end
 
 @testset "Approx" begin
@@ -65,7 +59,7 @@ end
     @test @inferred(is_fixed_function(typeof(isapprox_fxn)))
     @test @inferred(getfxn(isapprox_fxn)) == isapprox
     @test @inferred(getargs(isapprox_fxn)) == (1,)
-    @test @inferred(getkwargs(isapprox_fxn)) == Pairs((atol=2,),(:atol,))
+    @test @inferred(getkwargs(isapprox_fxn)) == (atol=2,)
 end
 
 @testset "NotApprox" begin
@@ -86,7 +80,7 @@ end
     @test @inferred(is_fixed_function(typeof(ltfxn)))
     @test @inferred(getfxn(ltfxn)) == <
     @test @inferred(getargs(ltfxn)) == (1,)
-    @test @inferred(getkwargs(ltfxn)) == empty_pairs
+    @test @inferred(getkwargs(ltfxn)) == empty_named_tuple
 end
 
 @testset "Equal" begin
@@ -97,7 +91,7 @@ end
     @test @inferred(is_fixed_function(typeof(eqfxn)))
     @test @inferred(getfxn(eqfxn)) == ==
     @test @inferred(getargs(eqfxn)) == (1,)
-    @test @inferred(getkwargs(eqfxn)) == empty_pairs
+    @test @inferred(getkwargs(eqfxn)) == empty_named_tuple
 end
 
 @testset "EndsWith" begin
@@ -108,7 +102,7 @@ end
     @test @inferred(is_fixed_function(typeof(endswith_fxn)))
     @test @inferred(getfxn(endswith_fxn)) == endswith
     @test @inferred(getargs(endswith_fxn)) == ("i",)
-    @test @inferred(getkwargs(endswith_fxn)) == empty_pairs
+    @test @inferred(getkwargs(endswith_fxn)) == empty_named_tuple
 end
 
 @testset "StartsWith" begin
@@ -119,7 +113,7 @@ end
     @test @inferred(is_fixed_function(typeof(startswith_fxn)))
     @test @inferred(getfxn(startswith_fxn)) == startswith
     @test @inferred(getargs(startswith_fxn)) == ("h",)
-    @test @inferred(getkwargs(startswith_fxn)) == empty_pairs
+    @test @inferred(getkwargs(startswith_fxn)) == empty_named_tuple
 end
 
 @testset "and" begin
@@ -141,7 +135,6 @@ end
     @test @inferred(is_fixed_function(typeof(and_fxn)))
     @test @inferred(getfxn(and_fxn)) == and
     @test @inferred(getargs(and_fxn)) == (true, <(5))
-    @test @inferred(ChainedFixes.positions(and_fxn)) == (1, 2)
 end
 
 @testset "or" begin

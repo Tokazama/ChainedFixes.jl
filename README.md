@@ -154,7 +154,8 @@ Internally, this includes support for those found in Julia's `Base` module (`Bas
 
 ## Constants
 
-The following constants are exported.
+The constants on the right sight of the following table may be exported and accessed via `using ChainedFixes.ChainedCore`
+The syntax corresponding to each constant is on the left.
 
 | Syntax                                    | Type Constant           |
 |------------------------------------------:|:------------------------|
