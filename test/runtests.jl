@@ -205,6 +205,11 @@ f = pipe_chain(and(<=(3), !=(2)), ==(true), in(trues(2)), !in(falses(2)))
 f = pipe_chain(isapprox(0.1), !isapprox(0.2))
 @test f(0.1 - 1e-10)
 
+splat_pipe(op, args::Tuple) = op(args...)
+splat_pipe(op) = @nfix splat_pipe(op, _...)
+f = pipe_chain(extrema, splat_pipe(+))
+@test @inferred(f([1 2; 3 4])) == 5
+
 @testset "docs" begin
     doctest(ChainedFixes)
 end

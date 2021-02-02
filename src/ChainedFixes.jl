@@ -488,7 +488,7 @@ end
     max_underscore, has_trailing_underscore = underscore_info(F)
     if max_underscore === Na
         has_trailing_underscore = false  # don't need to account for this now
-    elseif !has_trailing_underscore || max_underscore < Na
+    elseif !has_trailing_underscore || max_underscore > Na
         str = "Expected $max_underscore positional arguments but received $Na"
         return :($str)
     end
@@ -639,6 +639,7 @@ macro nfix(f)
     end
     esc(:(ChainedFixes.NFix($function_name, $args, $kwargs)))
 end
+
 
 end # module
 

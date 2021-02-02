@@ -5,7 +5,9 @@
 [![dev-docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://Tokazama.github.io/ChainedFixes.jl/dev)
 
 `ChainedFixes.jl` provides useful tools for interacting with functions where arguments are fixed to them.
-This includes support for those found in Julia's `Base` module (`Base.Fix1`, `Base.Fix2`) and exported from `ChainedFixes` (`ChainedFix` and `NFix`).
+
+
+## The `or`,`and` methods
 
 Some simple functionality available form this package is chaining any fixed function.
 ```julia
@@ -49,7 +51,9 @@ julia> gt_and_lt(0)
 false
 ```
 
-Any function can have methods fixed to it with the `NFix` function.
+## Creating new fixed methods with `@nfix`
+
+Any function can have methods fixed to it with `@nfix`.
 ```julia
 julia> fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1);
 
@@ -99,6 +103,18 @@ julia> f(""; y = 1)
 
 ```
 
+If we specify the underscore suffix we arguments can be repeated within a single function.
+```julia
+julia> f = @nfix *(_1, _1)
+*(_1, _1)
+
+julia> f(2)
+4
+
+```
+
+## Chaining piped methods
+
 We can create a chain a functions that act like an uncalled pipe (e.g., `|>`).
 A chain of fixed functions can be chained together via `pipe_chain`.
 ```julia
@@ -134,6 +150,8 @@ true
 
 ```
 
+Internally, this includes support for those found in Julia's `Base` module (`Base.Fix1`, `Base.Fix2`) and from `ChainedFixes` (`ChainedFix` and `NFix`).
+
 ## Constants
 
 The following constants are exported.
@@ -158,3 +176,18 @@ The following constants are exported.
 | `endswith(x::T)`                          | `EndsWith{T}`           |
 
 
+## Combining fixed methods
+
+The real utility of `ChainedFixes` is when combining fixed methods in creative ways
+```julia
+julia> splat_pipe(op, args::Tuple) = op(args...);
+
+julia> splat_pipe(op) = @nfix splat_pipe(op, _...);
+
+julia> f = pipe_chain(extrema, splat_pipe(+))
+|> extrema |> splat_pipe(+, _...)
+
+julia> f([1 2; 3 4])
+5
+
+```
