@@ -122,6 +122,9 @@ end
     @test and(and(<(5), >(1)), >(2))(3)
     @test and(<(5) ⩓ >(1), >(2))(3)  # ⩓ == \\And
 
+    @test @inferred(and(true, true))
+    @test !@inferred(and(false, false, ==(true)))
+    @test !@inferred(and(false, ==(true), false))
     @test @inferred(and(<=(1), <=(10))) == <=(1)
     @test @inferred(and(<=(10), <=(1))) == <=(1)
     @test @inferred(and(<(1), <(10))) == <(1)
@@ -131,16 +134,22 @@ end
     @test @inferred(and(>=(1), >=(10))) == >=(10)
     @test @inferred(and(>=(10), >=(1))) == >=(10)
 
+
     and_fxn = and(true, <(5))
     @test @inferred(is_fixed_function(typeof(and_fxn)))
     @test @inferred(getfxn(and_fxn)) == and
     @test @inferred(getargs(and_fxn)) == (true, <(5))
+
+    @test_throws MethodError and(true, true, true)
 end
 
 @testset "or" begin
     @test or(true, <(5))(1)
     @test or(<(5), false)(1)
     @test or(<(5) ⩔ >(1), >(2))(3)  # ⩔ == \\Or
+    @test @inferred(or(true, false, ==(true)))
+    @test @inferred(or(true, false))
+    @test @inferred(or(false, ==(true), true))
     @test @inferred(or(<(1), <(10))) == <(10)
     @test @inferred(or(<(10), <(1))) == <(10)
     @test @inferred(or(<=(1), <=(10))) == <=(10)
@@ -153,6 +162,7 @@ end
     or_fxn = or(true, <(5))
     @test getfxn(or_fxn) == or
     @test getargs(or_fxn) == (true, <(5))
+    @test_throws MethodError or(true, true, true)
 end
 
 fxn1(x::Integer, y::AbstractFloat, z::AbstractString) = Val(1)

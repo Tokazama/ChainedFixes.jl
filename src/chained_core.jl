@@ -46,7 +46,6 @@ if length(methods(isapprox, Tuple{Any})) == 0
 end
 const Approx{Kwargs,T} = typeof(isapprox(Any)).name.wrapper{Kwargs,T}
 
-
 if length(methods(startswith, Tuple{Any})) == 0
     Base.startswith(s) = Base.Fix2(startswith, s)
 end
@@ -150,7 +149,7 @@ function and(x, y::Function, z)
         return false
     end
 end
-and(x, y, z) = throw(MethodError(and, (x, y, z))) # TODO better error message
+and(x, y, z) = throw(MethodError(and, (x, y, z)))
 
 # 2 -args
 and(x, y) = x & y
@@ -210,7 +209,7 @@ function or(x, y::Function, z)
         return z
     end
 end
-or(x, y, z) = throw(MethodError(and, (x, y, z))) # TODO better error message
+or(x, y, z) = throw(MethodError(or, (x, y, z)))
 
 
 # 2 -args

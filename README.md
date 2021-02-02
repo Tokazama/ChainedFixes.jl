@@ -136,8 +136,8 @@ julia> f2 = pipe_chain(f, startswith("This"))
 julia> f2("This ")
 true
 
-julia> f = pipe_chain(and(<=(3), !=(2)), ==(true), in(trues(2)), !in(falses(2)))
-|> and(<=(3), !=(2)) |> ==(true) |> in(Bool[1, 1]) |> !in(Bool[0, 0])
+julia> f = pipe_chain(and(<=(3), !=(2)), ==(true), in(trues(2)), !in(falses(2)), >=(true))
+|> and(<=(3), !=(2)) |> ==(true) |> in(Bool[1, 1]) |> !in(Bool[0, 0]) |> >=(true)
 
 julia> f(1)
 true
