@@ -7,7 +7,7 @@
 `ChainedFixes.jl` provides useful tools for interacting with functions where arguments are fixed to them.
 
 
-## The `or`,`and` methods
+## The `or`, `and` methods
 
 Some simple functionality available form this package is chaining any fixed function.
 ```julia
