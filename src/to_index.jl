@@ -13,61 +13,57 @@
 end
 
 ## findfirst
-@inline ArrayInterface.to_index(x, i::Union{<:Approx{T},<:Equal{T}}) where {T} = _findeq(x, i)
-_findeq(x::AbstractRange, i) = Int(div(getfield(getargs(i), 1) - first(x), step(x))) + 1
-function _findeq(x, i)::Int where {T}
+function ArrayInterface.to_index(x, i::Union{Equal{T},Approx{T}})::Int where {T}
     index = findfirst(i, x)
     if index === nothing
-        return lastindex(x) + 1
+        return firstindex(x) - 1
     else
         return Int(index)
     end
 end
 
 ## Greater/GreaterThanOrEqual
-ArrayInterface.to_index(x, i::Greater{T}) where {T} = _findall_gt_ge(x, i)
-ArrayInterface.to_index(x, i::GreaterThanOrEqual{T}) where {T} = _findall_gt_ge(x, i)
+function ArrayInterface.to_index(x, i::Union{Greater{T},GreaterThanOrEqual{T}}) where {T}
+    _findall_gt_ge(x, i)
+end
 _findall_gt_ge(x, v) = findall(v, x)
 @inline function _findall_gt_ge(x::AbstractRange, v)
     if step(x) > 0
         start = findfirst(v, x)
-        stop = lastindex(x)
         if start === nothing
-            return stop:(stop - 1)
+            return range(firstindex(x) - 1, length=1)
         else
-            return start:stop
+            return start:lastindex(x)
         end
     else
-        start = firstindex(x)
         stop = findlast(v, x)
         if stop === nothing
-            return (start + 1):start
+            return range(firstindex(x) - 1, length=1)
         else
-            return start:stop
+            return firstindex(x):stop
         end
     end
 end
 
 # Less/LessThanOrEqual
-ArrayInterface.to_index(x, i::Less{T}) where {T} = _findall_lt_le(x, i)
-ArrayInterface.to_index(x, i::LessThanOrEqual{T}) where {T} = _findall_lt_le(x, i)
+function ArrayInterface.to_index(x, i::Union{Less{T},LessThanOrEqual{T}}) where {T}
+    _findall_lt_le(x, i)
+end
 _findall_lt_le(x, v) = findall(v, x)
 @inline function _findall_lt_le(x::AbstractRange, v)
     if step(x) > 0
-        start = firstindex(x)
         stop = findlast(v, x)
-        if start === nothing
-            return (start + 1):start
+        if stop === nothing
+            return range(firstindex(x) - 1, length=1)
         else
-            return start:stop
+            return firstindex(x):stop
         end
     else
         start = findfirst(v, x)
-        stop = lastindex(x)
-        if stop === nothing
-            return stop:(stop - 1)
+        if start === nothing
+            return range(firstindex(x) - 1, length=1)
         else
-            return start:stop
+            return start:lastindex(x)
         end
     end
 end
