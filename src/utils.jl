@@ -55,7 +55,7 @@ julia> ChainedFixes.getkwargs(isapprox(1, atol=2))
 ```
 """
 getkwargs(x) = NamedTuple{(),Tuple{}}(())
-getkwargs(x::Approx) = getfield(x, :kwargs).data
+getkwargs(x::Approx) = values(getfield(x, :kwargs))
 getkwargs(x::NFix) = getfield(x, :kwargs)
 getkwargs(x::Not) = getkwargs(getfield(x, :f))
 
