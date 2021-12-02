@@ -31,7 +31,7 @@ Base.@pure function underscore_info(::Type{A})::Tuple{Int,Bool} where {A}
     return (max_underscore, has_trailing_underscore)
 end
 
-@inline (f::NFix)(args...; kwargs...) = _execute(f.f, f.args, f.kwargs, args, kwargs.data)
+@inline (f::NFix)(args...; kwargs...) = _execute(f.f, f.args, f.kwargs, args, values(kwargs))
 
 @generated function _execute(
     f,
