@@ -1,5 +1,4 @@
 using Test
-using ArrayInterface: to_index
 using ChainedFixes
 using ChainedFixes.ChainedCore
 using Documenter
@@ -234,11 +233,6 @@ f = pipe_chain(extrema, splat_pipe(+))
     @test closest(x, 5) == 1
 end
 
-@testset "to_index" begin
-    include("to_index.jl")
-end
-
 @testset "docs" begin
     doctest(ChainedFixes)
 end
-

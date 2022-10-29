@@ -4,10 +4,9 @@ authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
 version = "0.3.1"
 
 [deps]
-ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
+ArrayInterfaceCore = "30b0a656-2188-435a-8636-2ec0e6a096e2"
 
 [compat]
-ArrayInterface = "3.0"
 julia = "1"
 
 [extras]
